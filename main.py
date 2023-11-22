@@ -45,7 +45,6 @@ class Frog():
             drawImage(image, self.x, self.y,align='center',
                     width=newWidth,height=newHeight)
         else:
-            imageWidth, imageHeight = self.standing.width, self.standing.height
             newWidth, newHeight = getNewDims(self.standing, 5)
             image = CMUImage(self.standing)
             drawImage(image, self.x, self.y,align='center',
@@ -104,7 +103,7 @@ def getNewDims(image, factor):
 
 #------------------------------------------Screens Functions
 def drawFarm(app):
-    pass
+    drawBoard(app)
 
 def drawStartScreen(app):
     screen = Image.open("images/home.png")
@@ -117,6 +116,30 @@ def drawStartScreen(app):
 
 def drawAboutScreen(app):
     pass
+
+#------------------------------------------Drawing a Board (CS Academy)
+def drawBoard(app):
+    for row in range(app.rows):
+        for col in range(app.cols):
+            drawCell(app, row, col)
+
+def drawCell(app, row, col):
+    cellLeft, cellTop = getCellLeftTop(app, row, col)
+    cellWidth, cellHeight = getCellSize(app)
+    drawRect(cellLeft, cellTop, cellWidth, cellHeight,
+             fill=None, border='black',
+             borderWidth=app.cellBorderWidth)
+
+def getCellLeftTop(app, row, col):
+    cellWidth, cellHeight = getCellSize(app)
+    cellLeft = app.boardLeft + col * cellWidth
+    cellTop = app.boardTop + row * cellHeight
+    return (cellLeft, cellTop)
+
+def getCellSize(app):
+    cellWidth = app.boardWidth / app.cols
+    cellHeight = app.boardHeight / app.rows
+    return (cellWidth, cellHeight)
 
 #------------------------------------------
 
@@ -155,10 +178,8 @@ def onKeyRelease(app, key):
 
 def onMousePress(app, mouseX, mouseY):
     button = getButtonClicked(app, mouseX, mouseY)
-    print(button)
     if button != None:
         app.screen = button.task
-        print(app.screen)
 
 def getButtonClicked(app, mx, my):
     for button in app.buttonsList:
