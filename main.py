@@ -18,32 +18,33 @@ class Frog():
         walkingSpriteList = []
         walkingGIF = Image.open("images/walking.gif")
         for frame in range(walkingGIF.n_frames):
-            image = walkingGIF.seek(frame)
+            walkingGIF.seek(frame)
+            image = walkingGIF.resize((walkingGIF.size[0], walkingGIF.size[1]))
             walkingSpriteList.append(image)
 
         self.walking = walkingSpriteList
 
-    def takeStep(self, direction):
-        if direction == 'left':
+    def takeStep(self):
+        if self.direction == 'left':
             self.x -= self.dx
-        elif direction == 'right':
+        elif self.direction == 'right':
             self. x += self.dx
-        elif direction == 'up':
+        elif self.direction == 'up':
             self. y -= self.dy
-        elif direction == 'down':
+        elif self.direction == 'down':
             self. y += self.dy
     
     def draw(self):
-        i = 0
-        if self.isMoving == True:
-            while self.isMoving == True:
-                image = self.walking[i % len(self.walking)]
-                # imageWidth, imageHeight = image.width, image.height
-                image = CMUImage(image)
-                # newWidth, newHeight = image.width//2, image.height//2
-                drawImage(image, self.x, self.y,align='center',
-                        width=200,height=200)
-                i+=1
+        i = self.counter
+        if self.isMoving:
+            image = self.walking[i % len(self.walking)]
+            imageWidth, imageHeight = image.width, image.height
+            if self.direction == 'right':
+                image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            image = CMUImage(image)
+            newWidth, newHeight = imageWidth//5, imageHeight//5
+            drawImage(image, self.x, self.y,align='center',
+                    width=newWidth,height=newHeight)
         else:
             imageWidth, imageHeight = self.standing.width, self.standing.height
             newWidth, newHeight = imageWidth//5, imageHeight//5
@@ -51,27 +52,49 @@ class Frog():
             drawImage(image, self.x, self.y,align='center',
                     width=newWidth, height=newHeight)
             
+class Plant():
+    def __init__(self, species):
+        self.species = species
+    # 4 stages: seed, baby, adolescent, adult  
+        self.stage = 0 
+        self.watered = False
+    # harvestable once daysTillHarvest == harvestTime
+    # do not progess if not watered
+        self.daysTillHarvest = 0 
 
+    def harvestTime(self):
+        pass
+    def agingTime(sef):
+        pass
+    def plantImages(self):
+        pass
+
+def drawMap(app):
+    pass
 
 def onAppStart(app):
+    app.stepsPerSecond = 10
     app.frog = Frog(app)
     app.frog.isMoving = False
+    app.frog.counter = 0
 
 def redrawAll(app):
-    # drawLabel("hi", app.width/2, app.height/2)
-    # drawImage(CMUImage(app.frog.standing),100,100,align='center',width=250,height=250)
+    drawMap(app)
     app.frog.draw()
 
 def onKeyPress(app, key):
-    print(key)
     if key == 'left' or 'right' or 'up' or'down':
-        app.direction = key
+        app.frog.direction = key
         app.frog.isMoving = True
-        app.frog.takeStep(key)
+        app.frog.takeStep()
 
 def onStep(app):
     if app.frog.isMoving:
-        app.frog.takeStep(app.direction)
+        app.frog.takeStep()
+        app.frog.counter += 1
+
+def onKeyRelease(app, key):
+    app.frog.isMoving = False
 
 def main():
     runApp(1000, 700)
