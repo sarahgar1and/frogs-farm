@@ -51,7 +51,7 @@ class Frog:
             drawImage(image, self.x, self.y,align='center',
                     width=newWidth, height=newHeight)
             
-class Plant():
+class Plant:
     harvestTimes = {}
     plantImages = {}
     def __init__(self, species):
@@ -78,10 +78,10 @@ class Plant():
         drawImage(image, self.x, self.y)
             
 
-class Button():
-    buttonImages = {'play': Image.open("images/play.png"),
+class Button:
+    buttonImages = {'farm': Image.open("images/play.png"),
                     'about': Image.open("images/about.png")}
-    buttonPos = {'play': (175, 200),
+    buttonPos = {'farm': (175, 200),
                  'about': (175,300)}
     def __init__(self, task):
         self.task = task
@@ -97,26 +97,16 @@ class Button():
         image = CMUImage(image)
         drawImage(image, self.x, self.y,
                   width=self.width, height=self.height) # don't align center
+        
+    def wasClicked(self, mx, my):
+        if (self.x < mx < (self.x + self.width) 
+            and self.y < my < (self.y + self.height)):
+            return True
+        else: return False
 
 def getNewDims(image, factor):
     width,height = image.width, image.height
     return width/factor, height/factor 
-
-#------------------------------------------Screens Functions
-def drawFarm(app):
-    drawBoard(app)
-
-def drawStartScreen(app):
-    screen = Image.open("images/home.png")
-    newWidth, newHeight = getNewDims(screen, 2.5)
-    screen = CMUImage(screen)
-    drawImage(screen, app.width/2, app.height/2, 
-              align='center', width=newWidth, height=newHeight)
-    app.play.draw()
-    app.about.draw()
-
-def drawAboutScreen(app):
-    drawLabel("About: ", app.width/2, 20)
 
 #------------------------------------------Drawing a Board (CS Academy)
 def drawBoard(app):
@@ -142,12 +132,12 @@ def getCellSize(app):
     return (cellWidth, cellHeight)
 
 #------------------------------------------
-
 def onAppStart(app):
+    app.width = 944
+    app.height = 656
+    app.stepsPerSecond = 10
     app.rows = 20
     app.cols = 20
-    app.stepsPerSecond = 10
-    app.screen = 'start'
 # frog :3
     app.frog = Frog(app)
     app.frog.isMoving = False
@@ -155,53 +145,50 @@ def onAppStart(app):
 # plants
     app.plantsList = []
 # buttons
-    app.play = Button('play')
+    app.play = Button('farm')
     app.about = Button('about')
-    app.buttonsList = [app.play, app.about]
+    app.startButtons = [app.play, app.about]
 
-def redrawAll(app):
-    if app.screen == 'start':
-        drawStartScreen(app)
-        return
-    elif app.screen == 'about':
-        drawAboutScreen(app)
-        return
-    elif app.screen == 'play':
-        drawFarm(app)
+#------------------------------------------START
+def start_redrawAll(app):
+    screen = Image.open("images/home.png")
+    newWidth, newHeight = getNewDims(screen, 2.5)
+    screen = CMUImage(screen)
+    drawImage(screen, app.width/2, app.height/2, 
+              align='center', width=newWidth, height=newHeight)
+    app.play.draw()
+    app.about.draw()
+
+def about_redrawAll(app):
+    drawLabel("About: ", app.width/2, 20)
+
+def start_onMousePress(app, mouseX, mouseY):
+    for button in app.startButtons:
+        if button.wasClicked:
+            setActiveScreen(button.task)
+            break
+
+#------------------------------------------FARM
+def farm_redrawAll(app):
+    drawBoard(app)
     app.frog.draw()
 
-def onKeyPress(app, key):
+def farm_onKeyPress(app, key):
     if key == 'left' or key == 'right' or key =='up' or key == 'down':
         app.frog.direction = key
         app.frog.isMoving = True
         app.frog.takeStep()
 
-def onKeyRelease(app, key):
+def farm_onKeyRelease(app, key):
     app.frog.isMoving = False
 
-def onMousePress(app, mouseX, mouseY):
-    button = getButtonClicked(app, mouseX, mouseY)
-    if button != None:
-        app.screen = button.task
-
-def getButtonClicked(app, mx, my):
-    for button in app.buttonsList:
-        if (button.x < mx < (button.x + button.width) 
-            and button.y < my < (button.y + button.height)):
-            # re-center frog
-            app.frog.x, app.frog.y = app.width/2, app.height/2
-            return button
-    return None
-
-def distance(x0, y0, x1, y1):
-    return ((x0-x1)**2 + (y0-y1)**2)**0.5
-
-def onStep(app):
+def farm_onStep(app):
     if app.frog.isMoving:
         app.frog.takeStep()
         app.frog.counter += 1
+#------------------------------------------
 
 def main():
-    runApp(944, 656)
+    runAppWithScreens(initialScreen='start')
 
 main()
