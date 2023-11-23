@@ -1,7 +1,7 @@
 from cmu_graphics import *
 from PIL import Image
 
-class Frog():
+class Frog:
     def __init__(self, app):
     # metrics: 10/10 is the maximum
         self.mood = 10
@@ -17,6 +17,7 @@ class Frog():
 
         walkingSpriteList = []
         walkingGIF = Image.open("images/walking.gif")
+        # (From lecture demo)
         for frame in range(walkingGIF.n_frames):
             walkingGIF.seek(frame)
             image = walkingGIF.resize((walkingGIF.size[0], walkingGIF.size[1]))
@@ -79,7 +80,7 @@ class Plant():
 
 class Button():
     buttonImages = {'play': Image.open("images/play.png"),
-                    'about': Image.open("images/play.png")}
+                    'about': Image.open("images/about.png")}
     buttonPos = {'play': (175, 200),
                  'about': (175,300)}
     def __init__(self, task):
@@ -115,7 +116,7 @@ def drawStartScreen(app):
     app.about.draw()
 
 def drawAboutScreen(app):
-    pass
+    drawLabel("About: ", app.width/2, 20)
 
 #------------------------------------------Drawing a Board (CS Academy)
 def drawBoard(app):
@@ -127,30 +128,32 @@ def drawCell(app, row, col):
     cellLeft, cellTop = getCellLeftTop(app, row, col)
     cellWidth, cellHeight = getCellSize(app)
     drawRect(cellLeft, cellTop, cellWidth, cellHeight,
-             fill=None, border='black',
-             borderWidth=app.cellBorderWidth)
+             fill='lightGreen', border='lightGreen')
 
 def getCellLeftTop(app, row, col):
     cellWidth, cellHeight = getCellSize(app)
-    cellLeft = app.boardLeft + col * cellWidth
-    cellTop = app.boardTop + row * cellHeight
+    cellLeft = col * cellWidth
+    cellTop = row * cellHeight
     return (cellLeft, cellTop)
 
 def getCellSize(app):
-    cellWidth = app.boardWidth / app.cols
-    cellHeight = app.boardHeight / app.rows
+    cellWidth = app.width / app.cols
+    cellHeight = app.height / app.rows
     return (cellWidth, cellHeight)
 
 #------------------------------------------
 
 def onAppStart(app):
+    app.rows = 20
+    app.cols = 20
     app.stepsPerSecond = 10
+    app.screen = 'start'
 # frog :3
     app.frog = Frog(app)
     app.frog.isMoving = False
     app.frog.counter = 0
-
-    app.screen = 'start'
+# plants
+    app.plantsList = []
 # buttons
     app.play = Button('play')
     app.about = Button('about')
@@ -163,12 +166,12 @@ def redrawAll(app):
     elif app.screen == 'about':
         drawAboutScreen(app)
         return
-    elif app.screen == 'farm':
+    elif app.screen == 'play':
         drawFarm(app)
     app.frog.draw()
 
 def onKeyPress(app, key):
-    if key == 'left' or 'right' or 'up' or'down':
+    if key == 'left' or key == 'right' or key =='up' or key == 'down':
         app.frog.direction = key
         app.frog.isMoving = True
         app.frog.takeStep()
@@ -184,7 +187,7 @@ def onMousePress(app, mouseX, mouseY):
 def getButtonClicked(app, mx, my):
     for button in app.buttonsList:
         if (button.x < mx < (button.x + button.width) 
-            and (button.y + button.height) < button.y < my):
+            and button.y < my < (button.y + button.height)):
             # re-center frog
             app.frog.x, app.frog.y = app.width/2, app.height/2
             return button
