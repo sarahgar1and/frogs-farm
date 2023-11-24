@@ -89,9 +89,19 @@ class Plant:
 
 class Button:
     buttonImages = {'farm': Image.open("images/play.png"),
-                    'about': Image.open("images/about.png")}
+                    'about': Image.open("images/about.png"),
+                    'undo': Image.open('images/return.png'),
+                    'shovel': Image.open('images/shovel.png'),
+                    'wateringCan': Image.open('images/watering_can.png'),
+                    'settings': Image.open('images/settings.png'),
+                    'inventory': Image.open('images/inventory.png')}
     buttonPos = {'farm': (175, 200),
-                 'about': (175,300)}
+                 'about': (175,300),
+                 'undo': (0,5),
+                 'shovel': (472, 590),
+                 'wateringCan': (412, 590),
+                 'settings': (0, 5),
+                 'inventory': (60, 5)}
     def __init__(self, task):
         self.task = task
         self.image = Button.buttonImages[task]
@@ -100,7 +110,7 @@ class Button:
     def __repr__(self):
         return f'{self.task}'
 
-    def draw(self):
+    def draw(self): #For big letter buttons
         image = self.image
         self.width, self.height = getNewDims(image, 6)
         image = CMUImage(image)
@@ -113,9 +123,90 @@ class Button:
             return True
         return False
 
+class LittleButton(Button):
+    def __init__(self, task):
+        super().__init__(task)
+    
+    def draw(self):
+        image = self.image
+        self.width, self.height = getNewDims(image, 8)
+        image = CMUImage(image)
+        drawImage(image, self.x, self.y,
+                  width=self.width, height=self.height)
+
 def getNewDims(image, factor):
     width,height = image.width, image.height
     return width/factor, height/factor 
+
+
+def onAppStart(app):
+    app.width = 944
+    app.height = 656
+    app.stepsPerSecond = 10
+    app.rows = 20
+    app.cols = 20
+# frog :3
+    app.frog = Frog(app)
+    app.frog.counter = 0
+# plants
+    app.plantsList = []
+# buttons
+    app.play = Button('farm')
+    app.about = Button('about')
+    app.startButtons = [app.play, app.about]
+
+    app.undo = LittleButton('undo')
+    app.seeSettings = LittleButton('settings')
+    app.seeInventory = LittleButton('inventory')
+    app.shovel = LittleButton('shovel')
+    app.wateringCan = LittleButton('wateringCan')
+
+#------------------------------------------START
+def start_redrawAll(app):
+    screen = Image.open("images/home.png")
+    newWidth, newHeight = getNewDims(screen, 2.5) 
+    screen = CMUImage(screen)
+    drawImage(screen, app.width/2, app.height/2, 
+              align='center', width=newWidth, height=newHeight)
+    app.play.draw()
+    app.about.draw()
+
+def start_onMousePress(app, mouseX, mouseY):
+    for button in app.startButtons:
+        if button.wasClicked(mouseX, mouseY):
+            setActiveScreen(button.task)
+            break
+
+def about_redrawAll(app):
+    drawLabel("About: ", app.width/2, 20)
+    app.undo.draw()
+
+def about_onMousePress(app, mouseX, mouseY):
+    if app.undo.wasClicked(mouseX, mouseY):
+        setActiveScreen('start')
+
+#------------------------------------------FARM
+def farm_redrawAll(app):
+    drawBoard(app)
+    app.frog.draw()
+    app.seeSettings.draw()
+    app.seeInventory.draw()
+    app.wateringCan.draw()
+    app.shovel.draw()
+
+def farm_onKeyPress(app, key):
+    if key == 'left' or key == 'right' or key =='up' or key == 'down':
+        app.frog.direction = key
+        app.frog.isMoving = True
+        app.frog.takeStep()
+
+def farm_onKeyRelease(app, key):
+    app.frog.isMoving = False
+
+def farm_onStep(app):
+    if app.frog.isMoving:
+        app.frog.takeStep()
+    app.frog.counter += 1
 
 #------------------------------------------Drawing a Board (CS Academy)
 def drawBoard(app):
@@ -139,61 +230,6 @@ def getCellSize(app):
     cellWidth = app.width / app.cols
     cellHeight = app.height / app.rows
     return (cellWidth, cellHeight)
-
-#------------------------------------------
-def onAppStart(app):
-    app.width = 944
-    app.height = 656
-    app.stepsPerSecond = 10
-    app.rows = 20
-    app.cols = 20
-# frog :3
-    app.frog = Frog(app)
-    app.frog.counter = 0
-# plants
-    app.plantsList = []
-# buttons
-    app.play = Button('farm')
-    app.about = Button('about')
-    app.startButtons = [app.play, app.about]
-
-#------------------------------------------START
-def start_redrawAll(app):
-    screen = Image.open("images/home.png")
-    newWidth, newHeight = getNewDims(screen, 2.5)
-    screen = CMUImage(screen)
-    drawImage(screen, app.width/2, app.height/2, 
-              align='center', width=newWidth, height=newHeight)
-    app.play.draw()
-    app.about.draw()
-
-def about_redrawAll(app):
-    drawLabel("About: ", app.width/2, 20)
-
-def start_onMousePress(app, mouseX, mouseY):
-    for button in app.startButtons:
-        if button.wasClicked(mouseX, mouseY):
-            setActiveScreen(button.task)
-            break
-
-#------------------------------------------FARM
-def farm_redrawAll(app):
-    drawBoard(app)
-    app.frog.draw()
-
-def farm_onKeyPress(app, key):
-    if key == 'left' or key == 'right' or key =='up' or key == 'down':
-        app.frog.direction = key
-        app.frog.isMoving = True
-        app.frog.takeStep()
-
-def farm_onKeyRelease(app, key):
-    app.frog.isMoving = False
-
-def farm_onStep(app):
-    if app.frog.isMoving:
-        app.frog.takeStep()
-    app.frog.counter += 1
 
 #------------------------------------------
 
