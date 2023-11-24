@@ -7,6 +7,8 @@ class Frog:
         self.mood = 10
         self.hunger = 10
         self.sleep = 10
+
+        self.isMoving = False
         self.x = app.width/2
         self.y = app.height/2
         self.dx = 10
@@ -15,15 +17,21 @@ class Frog:
     # images/sprites:
         self.standing = Image.open("images/standing.png")
 
-        walkingSpriteList = []
-        walkingGIF = Image.open("images/walking.gif")
-        # (From lecture demo)
-        for frame in range(walkingGIF.n_frames):
-            walkingGIF.seek(frame)
-            image = walkingGIF.resize((walkingGIF.size[0], walkingGIF.size[1]))
+        walkingSpriteList = [] # (From lecture demo)
+        walkingPng = Image.open("images/walking.png")
+        for frame in range(walkingPng.n_frames):
+            walkingPng.seek(frame)
+            image = walkingPng.resize((walkingPng.size[0], walkingPng.size[1]))
             walkingSpriteList.append(image)
-
         self.walking = walkingSpriteList
+
+        blinkingSpriteList = []
+        blinkingPng = Image.open('images/blinking.png')
+        for frame in range(blinkingPng.n_frames):
+            blinkingPng.seek(frame)
+            image = blinkingPng.resize((blinkingPng.size[0], blinkingPng.size[1]))
+            blinkingSpriteList.append(image)
+        self.blinking = blinkingSpriteList
 
     def takeStep(self):
         if self.direction == 'left':
@@ -46,8 +54,9 @@ class Frog:
             drawImage(image, self.x, self.y,align='center',
                     width=newWidth,height=newHeight)
         else:
-            newWidth, newHeight = getNewDims(self.standing, 5)
-            image = CMUImage(self.standing)
+            image = self.blinking[i % len(self.blinking)]
+            newWidth, newHeight = getNewDims(image, 5)
+            image = CMUImage(image)
             drawImage(image, self.x, self.y,align='center',
                     width=newWidth, height=newHeight)
             
@@ -102,7 +111,7 @@ class Button:
         if (self.x < mx < (self.x + self.width) 
             and self.y < my < (self.y + self.height)):
             return True
-        else: return False
+        return False
 
 def getNewDims(image, factor):
     width,height = image.width, image.height
@@ -140,7 +149,6 @@ def onAppStart(app):
     app.cols = 20
 # frog :3
     app.frog = Frog(app)
-    app.frog.isMoving = False
     app.frog.counter = 0
 # plants
     app.plantsList = []
@@ -164,7 +172,7 @@ def about_redrawAll(app):
 
 def start_onMousePress(app, mouseX, mouseY):
     for button in app.startButtons:
-        if button.wasClicked:
+        if button.wasClicked(mouseX, mouseY):
             setActiveScreen(button.task)
             break
 
@@ -185,7 +193,8 @@ def farm_onKeyRelease(app, key):
 def farm_onStep(app):
     if app.frog.isMoving:
         app.frog.takeStep()
-        app.frog.counter += 1
+    app.frog.counter += 1
+
 #------------------------------------------
 
 def main():
