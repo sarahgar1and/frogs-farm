@@ -61,8 +61,24 @@ class Frog:
                     width=newWidth, height=newHeight)
             
 class Plant:
-    harvestTimes = {}
-    plantImages = {}
+    harvestTimes = {'tomato': 3, 
+                    'strawberry': 4,
+                    'wheat': 3,
+                    'blueberry': 5,
+                    'carrot': 3,
+                    'lettuce': 4}
+    plantImages = {'tomato-1': Image.open('images/tomato.png'),
+                   'strawberry-1': Image.open('images/strawberry.png'),
+                   'wheat-1': Image.open('images/wheat.png'),
+                   'blueberry-1': Image.open('images/blueberry.png'),
+                   'carrot-1': Image.open('images/carrot.png'),
+                   'lettuce-1': Image.open('images/lettuce.png'),
+                   'tomato-0': Image.open('images/baby_fruit.png'),
+                   'strawberry-0': Image.open('images/baby_fruit.png'),
+                   'wheat-0': Image.open('images/baby_wheat.png'),
+                   'blueberry-0': Image.open('images/baby_berry.png'),
+                   'carrot-0': Image.open('images/baby_leaves.png'),
+                   'lettuce-0': Image.open('images/baby_leaves.png')}
     def __init__(self, species):
         self.species = species
     # 4 stages: seed, baby, adolescent, adult  
@@ -84,7 +100,9 @@ class Plant:
     
     def draw(self):
         image = CMUImage(self.image)
-        drawImage(image, self.x, self.y)
+        self.width, self.height = getNewDims(self.image, 6)
+        drawImage(image, self.x, self.y, align='center',
+                  width=self.width, height=self.height)
             
 
 class Button:
@@ -99,9 +117,9 @@ class Button:
                  'about': (175,300),
                  'undo': (0,5),
                  'shovel': (472, 590),
-                 'wateringCan': (412, 590),
-                 'settings': (0, 5),
-                 'inventory': (60, 5)}
+                 'wateringCan': (402, 590),
+                 'settings': (874, 5),
+                 'inventory': (804, 5)}
     def __init__(self, task):
         self.task = task
         self.image = Button.buttonImages[task]
@@ -143,23 +161,27 @@ def onAppStart(app):
     app.width = 944
     app.height = 656
     app.stepsPerSecond = 10
-    app.rows = 20
-    app.cols = 20
+    app.rows = 10
+    app.cols = 10
 # frog :3
     app.frog = Frog(app)
     app.frog.counter = 0
 # plants
     app.plantsList = []
+    app.dirtCells = []
 # buttons
     app.play = Button('farm')
     app.about = Button('about')
-    app.startButtons = [app.play, app.about]
-
     app.undo = LittleButton('undo')
+    app.startButtons = [app.play, app.about]
     app.seeSettings = LittleButton('settings')
     app.seeInventory = LittleButton('inventory')
     app.shovel = LittleButton('shovel')
     app.wateringCan = LittleButton('wateringCan')
+    app.farmButtons = [app.seeSettings, app.seeInventory, app.shovel, app.wateringCan]
+    
+    app.shovelEquipped = app.wateringCanEquipped = False
+    
 
 #------------------------------------------START
 def start_redrawAll(app):
@@ -188,11 +210,56 @@ def about_onMousePress(app, mouseX, mouseY):
 #------------------------------------------FARM
 def farm_redrawAll(app):
     drawBoard(app)
+#plants
+    for plant in app.plantsList:
+        plant.draw()
+
     app.frog.draw()
+#buttons
     app.seeSettings.draw()
     app.seeInventory.draw()
     app.wateringCan.draw()
     app.shovel.draw()
+#tools
+    if app.shovelEquipped:
+        image = app.shovel.image
+        width, height = getNewDims(image, 8)
+        image = CMUImage(image)
+        drawImage(image, app.toolX, app.toolY, 
+                  align='center', width=width, height=height)
+        drawRect(app.shovel.x, app.shovel.y, width, height,
+                  fill=None, border='green')
+    elif app.wateringCanEquipped:
+        image = app.wateringCan.image
+        width, height = getNewDims(image, 8)
+        image = CMUImage(image)
+        drawImage(image, app.toolX, app.toolY, 
+                  align='center', width=width, height=height)
+        drawRect(app.wateringCan.x, app.wateringCan.y, width, height,
+                  fill=None, border='green')
+
+def farm_onMousePress(app, mouseX, mouseY):
+    clicked = None
+    for button in app.farmButtons:
+        if button.wasClicked(mouseX, mouseY):
+            clicked = button
+            break
+    if clicked != None:
+        if clicked.task == 'shovel':
+            app.shovelEquipped = not app.shovelEquipped
+            app.toolX, app.toolY = mouseX, mouseY
+        elif clicked.task == 'wateringCan':
+            app.wateringCanEquipped = not app.wateringCanEquipped
+            app.toolX, app.toolY = mouseX, mouseY
+    #digging with shovel
+    if app.shovelEquipped:
+        x, y = mouseX, mouseY
+        if y < 590: #don't dig when equipping the tool
+            app.dirtCells.append((x, y))
+
+def farm_onMouseMove(app, mouseX, mouseY):
+    if app.shovelEquipped or app.wateringCanEquipped:
+        app.toolX, app.toolY = mouseX, mouseY
 
 def farm_onKeyPress(app, key):
     if key == 'left' or key == 'right' or key =='up' or key == 'down':
@@ -217,8 +284,16 @@ def drawBoard(app):
 def drawCell(app, row, col):
     cellLeft, cellTop = getCellLeftTop(app, row, col)
     cellWidth, cellHeight = getCellSize(app)
+    fill=None
+    #if cell is crop cell, fill brown, else green
+    for x, y in app.dirtCells:
+        if cellLeft<=x<=cellWidth+cellLeft and cellTop<=y<=cellHeight+cellTop:
+            fill='brown'
+    if fill==None:
+        fill = 'lightGreen'
+
     drawRect(cellLeft, cellTop, cellWidth, cellHeight,
-             fill='lightGreen', border='lightGreen')
+             fill=fill, border=fill)
 
 def getCellLeftTop(app, row, col):
     cellWidth, cellHeight = getCellSize(app)
