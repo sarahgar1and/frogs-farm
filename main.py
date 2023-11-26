@@ -251,6 +251,11 @@ def farm_onMousePress(app, mouseX, mouseY):
         elif clicked.task == 'wateringCan':
             app.wateringCanEquipped = not app.wateringCanEquipped
             app.toolX, app.toolY = mouseX, mouseY
+        elif clicked.task == 'settings':
+            setActiveScreen('settings')
+        elif clicked.task == 'inventory':
+            setActiveScreen('inventory')
+
     #digging with shovel
     if app.shovelEquipped:
         if mouseY < 590: #don't dig when equipping the tool
@@ -354,7 +359,14 @@ def drawTools(app):
                   align='center', width=width, height=height)
         drawRect(app.wateringCan.x, app.wateringCan.y, width, height,
                   fill=None, border='green')
-#------------------------------------------
+        
+#------------------------------------------Settings
+def settings_redrawAll(app):
+    pass
+
+#------------------------------------------Inventory
+def inventory_redrawAll(app):
+    pass
 
 def main():
     runAppWithScreens(initialScreen='start')
