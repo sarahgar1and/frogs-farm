@@ -1,5 +1,6 @@
 from cmu_graphics import *
 from PIL import Image
+import copy
 
 class Frog:
     def __init__(self, app):
@@ -8,7 +9,7 @@ class Frog:
         self.hunger = 10
         self.sleep = 10
 
-        self.isMoving = False
+        self.isMoving = self.atRightEdge = self.atLeftEdge = False
         self.x = app.width/2
         self.y = app.height/2
         self.dx = 10
@@ -33,14 +34,14 @@ class Frog:
             blinkingSpriteList.append(image)
         self.blinking = blinkingSpriteList
 
-    def takeStep(self):
-        if self.direction == 'left':
+    def takeStep(self, app):
+        if self.direction == 'left' and not self.atLeftEdge:
             self.x -= self.dx
-        elif self.direction == 'right':
+        elif self.direction == 'right' and not self.atRightEdge:
             self. x += self.dx
-        elif self.direction == 'up':
+        elif self.direction == 'up' and self.y > 0:
             self. y -= self.dy
-        elif self.direction == 'down':
+        elif self.direction == 'down' and self.y < app.height:
             self. y += self.dy
     
     def draw(self):
@@ -49,13 +50,13 @@ class Frog:
             image = self.walking[i % len(self.walking)]
             if self.direction == 'right':
                 image = image.transpose(Image.FLIP_LEFT_RIGHT)
-            newWidth, newHeight = getNewDims(image, 5)
+            newWidth, newHeight = getNewDims(image, 6)
             image = CMUImage(image)
             drawImage(image, self.x, self.y,align='center',
                     width=newWidth,height=newHeight)
         else:
             image = self.blinking[i % len(self.blinking)]
-            newWidth, newHeight = getNewDims(image, 5)
+            newWidth, newHeight = getNewDims(image, 6)
             image = CMUImage(image)
             drawImage(image, self.x, self.y,align='center',
                     width=newWidth, height=newHeight)
@@ -160,15 +161,25 @@ def getNewDims(image, factor):
 def onAppStart(app):
     app.width = 944
     app.height = 656
+    app.margin = 30
     app.stepsPerSecond = 10
-    app.rows = 10
+    app.rows = 7
     app.cols = 10
+    app.cellWidth = 100
+    app.cellHeight = 100
+    app.boardTop = 0
+    app.boardLeft = 0
+    app.cellCoords = set()
+
+    for row in range(app.rows):
+        for col in range(app.cols):
+            app.cellCoords.add((getCellLeftTop(app, row, col)))
 # frog :3
     app.frog = Frog(app)
     app.frog.counter = 0
 # plants
     app.plantsList = []
-    app.dirtCells = []
+    app.dirtCells = set()
 # buttons
     app.play = Button('farm')
     app.about = Button('about')
@@ -200,7 +211,11 @@ def start_onMousePress(app, mouseX, mouseY):
             break
 
 def about_redrawAll(app):
-    drawLabel("About: ", app.width/2, 20)
+    screen = Image.open('images/aboutscreen.png')
+    width, height = getNewDims(screen, 2.5)
+    screen = CMUImage(screen)
+    drawImage(screen, app.width/2, app.height/2, 
+              align='center', width=width, height=height)
     app.undo.draw()
 
 def about_onMousePress(app, mouseX, mouseY):
@@ -221,22 +236,7 @@ def farm_redrawAll(app):
     app.wateringCan.draw()
     app.shovel.draw()
 #tools
-    if app.shovelEquipped:
-        image = app.shovel.image
-        width, height = getNewDims(image, 8)
-        image = CMUImage(image)
-        drawImage(image, app.toolX, app.toolY, 
-                  align='center', width=width, height=height)
-        drawRect(app.shovel.x, app.shovel.y, width, height,
-                  fill=None, border='green')
-    elif app.wateringCanEquipped:
-        image = app.wateringCan.image
-        width, height = getNewDims(image, 8)
-        image = CMUImage(image)
-        drawImage(image, app.toolX, app.toolY, 
-                  align='center', width=width, height=height)
-        drawRect(app.wateringCan.x, app.wateringCan.y, width, height,
-                  fill=None, border='green')
+    drawTools(app)
 
 def farm_onMousePress(app, mouseX, mouseY):
     clicked = None
@@ -253,9 +253,15 @@ def farm_onMousePress(app, mouseX, mouseY):
             app.toolX, app.toolY = mouseX, mouseY
     #digging with shovel
     if app.shovelEquipped:
-        x, y = mouseX, mouseY
-        if y < 590: #don't dig when equipping the tool
-            app.dirtCells.append((x, y))
+        if mouseY < 590: #don't dig when equipping the tool
+            cellCoords = (getCellClicked(app, mouseX, mouseY))
+            app.dirtCells.add(cellCoords)
+
+def getCellClicked(app, x, y):
+    for cellLeft, cellTop in app.cellCoords:
+        if (cellLeft <= x <= cellLeft+app.cellWidth 
+            and cellTop <= y <= cellTop+app.cellHeight):
+            return (cellLeft, cellTop)
 
 def farm_onMouseMove(app, mouseX, mouseY):
     if app.shovelEquipped or app.wateringCanEquipped:
@@ -265,15 +271,49 @@ def farm_onKeyPress(app, key):
     if key == 'left' or key == 'right' or key =='up' or key == 'down':
         app.frog.direction = key
         app.frog.isMoving = True
-        app.frog.takeStep()
+        
 
 def farm_onKeyRelease(app, key):
     app.frog.isMoving = False
 
 def farm_onStep(app):
     if app.frog.isMoving:
-        app.frog.takeStep()
+        app.frog.takeStep(app)
+        if app.frog.x >= app.width - app.margin:
+            scroll(app, 'left')
+            app.frog.atRightEdge = True
+        else: app.frog.atRightEdge = False
+        if app.frog.x <= app.margin:
+            scroll(app, 'right')
+            app.frog.atLeftEdge = True
+        else: app.frog.atLeftEdge = False
     app.frog.counter += 1
+
+def scroll(app, direction):
+    app.cols += 1
+    app.boardLeft -= 10
+    for row in range(app.rows):
+        app.cellCoords.add((getCellLeftTop(app, row, app.cols-1)))
+
+    if direction == 'left':
+        for cellLeft, cellTop in copy.copy(app.dirtCells):
+            newCellLeft = cellLeft - 10
+            app.dirtCells.add((newCellLeft, cellTop))
+            app.dirtCells.remove((cellLeft, cellTop))
+        for cellLeft, cellTop in copy.copy(app.cellCoords):
+            newCellLeft = cellLeft - 10
+            app.cellCoords.add((newCellLeft, cellTop))
+            app.cellCoords.remove((cellLeft, cellTop))
+    elif direction == 'right':
+        for cellLeft, cellTop in copy.copy(app.dirtCells):
+            newCellLeft = cellLeft + 10
+            app.dirtCells.add((newCellLeft, cellTop))
+            app.dirtCells.remove((cellLeft, cellTop))
+        for cellLeft, cellTop in copy.copy(app.cellCoords):
+            newCellLeft = cellLeft + 10
+            app.cellCoords.add((newCellLeft, cellTop))
+            app.cellCoords.remove((cellLeft, cellTop))
+
 
 #------------------------------------------Drawing a Board (CS Academy)
 def drawBoard(app):
@@ -283,29 +323,37 @@ def drawBoard(app):
 
 def drawCell(app, row, col):
     cellLeft, cellTop = getCellLeftTop(app, row, col)
-    cellWidth, cellHeight = getCellSize(app)
-    fill=None
     #if cell is crop cell, fill brown, else green
-    for x, y in app.dirtCells:
-        if cellLeft<=x<=cellWidth+cellLeft and cellTop<=y<=cellHeight+cellTop:
-            fill='brown'
-    if fill==None:
-        fill = 'lightGreen'
+    if (cellLeft, cellTop) in app.dirtCells:
+        fill='brown'
+    else: fill='lightGreen'
 
-    drawRect(cellLeft, cellTop, cellWidth, cellHeight,
+    drawRect(cellLeft, cellTop, app.cellWidth, app.cellHeight,
              fill=fill, border=fill)
 
 def getCellLeftTop(app, row, col):
-    cellWidth, cellHeight = getCellSize(app)
-    cellLeft = col * cellWidth
-    cellTop = row * cellHeight
+    cellLeft = app.boardLeft + col * app.cellWidth
+    cellTop = app.boardTop + row * app.cellHeight
+    # app.cellCoords.add((cellLeft, cellTop))
     return (cellLeft, cellTop)
 
-def getCellSize(app):
-    cellWidth = app.width / app.cols
-    cellHeight = app.height / app.rows
-    return (cellWidth, cellHeight)
-
+def drawTools(app):
+    if app.shovelEquipped:
+        image = app.shovel.image
+        width, height = getNewDims(image, 8)
+        image = CMUImage(image)
+        drawImage(image, app.toolX, app.toolY, 
+                  align='center', width=width, height=height)
+        drawRect(app.shovel.x, app.shovel.y, width, height,
+                  fill=None, border='green')
+    elif app.wateringCanEquipped:
+        image = app.wateringCan.image
+        width, height = getNewDims(image, 8)
+        image = CMUImage(image)
+        drawImage(image, app.toolX, app.toolY, 
+                  align='center', width=width, height=height)
+        drawRect(app.wateringCan.x, app.wateringCan.y, width, height,
+                  fill=None, border='green')
 #------------------------------------------
 
 def main():
