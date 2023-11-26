@@ -4,16 +4,15 @@ import copy
 
 class Frog:
     def __init__(self, app):
-    # metrics: 10/10 is the maximum
-        self.mood = 10
-        self.hunger = 10
-        self.sleep = 10
+    # metrics: 20/20 is the maximum
+        self.hunger = 20
+        self.sleep = 20
 
-        self.isMoving = self.atRightEdge = self.atLeftEdge = False
+        self.isMoving=self.doneWorking=self.atRightEdge=self.atLeftEdge=False
         self.x = app.width/2
         self.y = app.height/2
-        self.dx = 10
-        self.dy = 10
+        self.dx = 12
+        self.dy = 12
 
     # images/sprites:
         self.standing = Image.open("images/standing.png")
@@ -60,6 +59,11 @@ class Frog:
             image = CMUImage(image)
             drawImage(image, self.x, self.y,align='center',
                     width=newWidth, height=newHeight)
+        drawLabel(f'Sleep:{self.sleep} Hunger:{self.hunger}', 
+                  20, 20, size=16, align='left')
+        if self.doneWorking:
+            drawLabel('I need some care!', self.x, 
+                      self.y-75, size=16)
             
 class Plant:
     harvestTimes = {'tomato': 3, 
@@ -170,15 +174,15 @@ def onAppStart(app):
     app.boardTop = 0
     app.boardLeft = 0
     app.cellCoords = set()
-
     for row in range(app.rows):
         for col in range(app.cols):
             app.cellCoords.add((getCellLeftTop(app, row, col)))
+    app.scrollCounter = 0
 # frog :3
     app.frog = Frog(app)
     app.frog.counter = 0
 # plants
-    app.plantsList = []
+    app.plants = dict()
     app.dirtCells = set()
 # buttons
     app.play = Button('farm')
@@ -226,9 +230,8 @@ def about_onMousePress(app, mouseX, mouseY):
 def farm_redrawAll(app):
     drawBoard(app)
 #plants
-    for plant in app.plantsList:
-        plant.draw()
-
+    drawField(app)
+#frog/metrics
     app.frog.draw()
 #buttons
     app.seeSettings.draw()
@@ -257,16 +260,39 @@ def farm_onMousePress(app, mouseX, mouseY):
             setActiveScreen('inventory')
 
     #digging with shovel
-    if app.shovelEquipped:
-        if mouseY < 590: #don't dig when equipping the tool
-            cellCoords = (getCellClicked(app, mouseX, mouseY))
-            app.dirtCells.add(cellCoords)
+    if app.shovelEquipped and not app.frog.doneWorking:
+        dig(app, mouseX, mouseY)
+    if app.frog.hunger == 0 or app.frog.sleep == 0:
+        app.frog.doneWorking = True
+    
+    #if not shoveling/watering check if trying to plant a crop
+    #can only plant if frog is near cell
+    if not app.shovelEquipped and not app.wateringCanEquipped:
+        cellLeft, cellTop = (getCellClicked(app, mouseX, mouseY))
+        if ((cellLeft, cellTop) in app.plants and 
+            cellLeft-50 <= app.frog.x <= cellLeft+app.cellWidth+20 and
+            cellTop-50 <= app.frog.y <= cellTop+app.cellHeight+20):
+            setActiveScreen('inventory')
+            app.selectedCrop = getSelectedCrop(app)
+            app.plants[cellLeft, cellTop] = Plant(app.selectedCrop)
+
 
 def getCellClicked(app, x, y):
     for cellLeft, cellTop in app.cellCoords:
         if (cellLeft <= x <= cellLeft+app.cellWidth 
             and cellTop <= y <= cellTop+app.cellHeight):
             return (cellLeft, cellTop)
+
+def dig(app, mouseX, mouseY):
+    if mouseY < 590: #don't dig when equipping the tool
+            cellCoords = (getCellClicked(app, mouseX, mouseY))
+            if cellCoords not in app.dirtCells:
+                app.dirtCells.add(cellCoords)
+                app.plants[cellCoords] = 'dirt' #can put something here
+                if len(app.dirtCells) % 5 == 0:
+                    app.frog.sleep -= 1
+                if len(app.dirtCells) % 3 == 0:
+                    app.frog.hunger -= 1
 
 def farm_onMouseMove(app, mouseX, mouseY):
     if app.shovelEquipped or app.wateringCanEquipped:
@@ -275,8 +301,7 @@ def farm_onMouseMove(app, mouseX, mouseY):
 def farm_onKeyPress(app, key):
     if key == 'left' or key == 'right' or key =='up' or key == 'down':
         app.frog.direction = key
-        app.frog.isMoving = True
-        
+        app.frog.isMoving = True    
 
 def farm_onKeyRelease(app, key):
     app.frog.isMoving = False
@@ -295,12 +320,14 @@ def farm_onStep(app):
     app.frog.counter += 1
 
 def scroll(app, direction):
-    app.cols += 1
-    app.boardLeft -= 10
-    for row in range(app.rows):
-        app.cellCoords.add((getCellLeftTop(app, row, app.cols-1)))
-
+    if app.cols >= 20: return
     if direction == 'left':
+        app.boardLeft -= 10
+        app.scrollCounter += 10
+        if app.scrollCounter % 70 == 0:
+            app.cols +=1
+        for row in range(app.rows):
+            app.cellCoords.add((getCellLeftTop(app, row, app.cols)))
         for cellLeft, cellTop in copy.copy(app.dirtCells):
             newCellLeft = cellLeft - 10
             app.dirtCells.add((newCellLeft, cellTop))
@@ -310,15 +337,7 @@ def scroll(app, direction):
             app.cellCoords.add((newCellLeft, cellTop))
             app.cellCoords.remove((cellLeft, cellTop))
     elif direction == 'right':
-        for cellLeft, cellTop in copy.copy(app.dirtCells):
-            newCellLeft = cellLeft + 10
-            app.dirtCells.add((newCellLeft, cellTop))
-            app.dirtCells.remove((cellLeft, cellTop))
-        for cellLeft, cellTop in copy.copy(app.cellCoords):
-            newCellLeft = cellLeft + 10
-            app.cellCoords.add((newCellLeft, cellTop))
-            app.cellCoords.remove((cellLeft, cellTop))
-
+        pass
 
 #------------------------------------------Drawing a Board (CS Academy)
 def drawBoard(app):
@@ -359,13 +378,29 @@ def drawTools(app):
                   align='center', width=width, height=height)
         drawRect(app.wateringCan.x, app.wateringCan.y, width, height,
                   fill=None, border='green')
-        
+
+def drawField(app):
+    for cell in app.plants:
+        if app.plants[cell] == 'dirt':
+            x, y = cell
+            if (x-50 <= app.frog.x <= x+app.cellWidth+20 and
+            y-50 <= app.frog.y <= y+app.cellHeight+20):
+                drawLabel('Plant Here', x+app.cellWidth/2, y+app.cellHeight/2)
+        else:
+            app.plants[cell].draw()
+
 #------------------------------------------Settings
 def settings_redrawAll(app):
     pass
 
 #------------------------------------------Inventory
 def inventory_redrawAll(app):
+    pass
+
+def inventory_onMousePress(app):
+    pass
+
+def getSelectedCrop(app):
     pass
 
 def main():
