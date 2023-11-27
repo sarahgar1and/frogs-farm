@@ -7,6 +7,7 @@ class Frog:
     # metrics: 20/20 is the maximum
         self.hunger = 20
         self.sleep = 20
+        self.counter = 0
 
         self.isMoving=self.doneWorking=self.atRightEdge=self.atLeftEdge=False
         self.x = app.width/2
@@ -65,6 +66,15 @@ class Frog:
             drawLabel('I need some care!', self.x, 
                       self.y-75, size=16)
             
+    def bedtime(self, app):
+        self.sleep = 20
+        for cell in app.plants:
+            if app.plants[cell] != 'dirt' and app.plants[cell].watered:
+                app.plants[cell].grow()
+
+    def eat(self):
+        pass
+            
 class Plant:
     harvestTimes = {'tomato': 3, 
                     'strawberry': 4,
@@ -91,8 +101,9 @@ class Plant:
         self.image = Image.open("images/seed.png")
     # harvestable once daysTillHarvest == harvestTime
         self.days = 0 
+        self.watered = False
 
-    def grow(self): # call when watered!!
+    def grow(self): # call when for watered plants when we sleep!!
         self.days += 1
         if self.days == Plant.harvestTimes[self.species]:
             self.stage = 'ready!'
@@ -103,11 +114,13 @@ class Plant:
         elif self.days == 4: # spend 2 days as an adolescent
             self.image = Plant.plantImages[f'{self.species}-1']
     
-    def draw(self):
+    def draw(self, x, y):
         image = CMUImage(self.image)
-        self.width, self.height = getNewDims(self.image, 6)
-        drawImage(image, self.x, self.y, align='center',
+        self.width, self.height = getNewDims(self.image, 5)
+        drawImage(image, x, y, align='center',
                   width=self.width, height=self.height)
+        if not self.watered:
+            drawLabel("I'm thirsty!", x, y+20, size=16, fill='lightBlue')
             
 class Button:
     buttonImages = {'farm': Image.open("images/play.png"),
@@ -216,11 +229,10 @@ def onAppStart(app):
     app.scrollCounter = 0
 # frog :3
     app.frog = Frog(app)
-    app.frog.counter = 0
     app.day = 0
 # plants
-    app.plants = dict()
-    app.dirtCells = set()
+    app.plants = dict() #positions of all plant cells and species
+    app.dirtCells = set() #cellLeft, cellTop of all 'hoed' cells
 # buttons
     app.play = Button('farm')
     app.about = Button('about')
@@ -230,13 +242,14 @@ def onAppStart(app):
     app.seeInventory = LittleButton('inventory')
     app.shovel = LittleButton('shovel')
     app.wateringCan = LittleButton('wateringCan')
-    app.farmButtons = [app.seeSettings, app.seeInventory, app.shovel, app.wateringCan]
+    app.farmButtons = [app.seeSettings, app.seeInventory, 
+                       app.shovel, app.wateringCan]
     
     app.shovelEquipped = app.wateringCanEquipped = False
     app.selectedItem = None
-    app.inventory = [Crop('strawberry'), Crop('tomato'), Seed('wheat')]
+    app.inventory = [Crop('strawberry'), Crop('tomato'), 
+                     Seed('wheat')] #start empty
     
-
 #------------------------------------------START
 def start_redrawAll(app):
     screen = Image.open("images/home.png")
@@ -294,7 +307,8 @@ def farm_onMousePress(app, mouseX, mouseY):
             app.wateringCanEquipped = not app.wateringCanEquipped
             app.toolX, app.toolY = mouseX, mouseY
         elif clicked.task == 'settings':
-            setActiveScreen('settings')
+            # setActiveScreen('settings')
+            app.frog.bedtime(app)
         elif clicked.task == 'inventory':
             setActiveScreen('inventory')
 
@@ -304,15 +318,16 @@ def farm_onMousePress(app, mouseX, mouseY):
     if app.frog.hunger == 0 or app.frog.sleep == 0:
         app.frog.doneWorking = True
     
+    #watering the plants
+    if app.wateringCanEquipped and not app.frog.doneWorking:
+        water(app, mouseX, mouseY)
+
     #if not shoveling/watering check if trying to plant a crop
     #can only plant if frog is near cell
-    if not app.shovelEquipped and not app.wateringCanEquipped:
-        cellLeft, cellTop = (getCellClicked(app, mouseX, mouseY))
-        if ((cellLeft, cellTop) in app.plants and 
-            cellLeft-50 <= app.frog.x <= cellLeft+app.cellWidth+20 and
-            cellTop-50 <= app.frog.y <= cellTop+app.cellHeight+20):
-            setActiveScreen('inventory')
-
+    if (not app.shovelEquipped and 
+        not app.wateringCanEquipped and 
+        not app.frog.doneWorking):
+        plantSeed(app, mouseX, mouseY)
 
 def getCellClicked(app, x, y):
     for cellLeft, cellTop in getAllCellCoords(app):
@@ -329,14 +344,36 @@ def getAllCellCoords(app):
 
 def dig(app, mouseX, mouseY):
     if mouseY < 590: #don't dig when equipping the tool
-            cellCoords = (getCellClicked(app, mouseX, mouseY))
-            if cellCoords not in app.dirtCells and cellCoords != None:
-                app.dirtCells.add(cellCoords)
-                app.plants[cellCoords] = 'dirt' #can put something here
-                if len(app.dirtCells) % 5 == 0:
-                    app.frog.sleep -= 1
-                if len(app.dirtCells) % 3 == 0:
-                    app.frog.hunger -= 1
+            if getCellClicked(app, mouseX, mouseY) != None:
+                cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
+                if (cellLeft, cellTop) not in app.dirtCells:
+                    app.dirtCells.add((cellLeft, cellTop))
+                    x, y = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
+                    app.plants[(x, y)] = 'dirt' #can put something here
+                    if len(app.dirtCells) % 5 == 0:
+                        app.frog.sleep -= 1
+                    if len(app.dirtCells) % 3 == 0:
+                        app.frog.hunger -= 1
+
+def plantSeed(app, mouseX, mouseY):
+    cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
+    x, y  = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
+    if ((x, y) in app.plants and 
+        cellLeft-50 <= app.frog.x <= cellLeft+app.cellWidth+20 and
+        cellTop-50 <= app.frog.y <= cellTop+app.cellHeight+20):
+        setActiveScreen('inventory')
+        if type(app.selectedItem) == Seed:
+            seed = app.selectedItem
+            app.plants[(x, y)] = Plant(seed.type)
+
+def water(app, mouseX, mouseY):
+    cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
+    x, y  = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
+    if ((x, y) in app.plants and 
+        cellLeft-50 <= app.frog.x <= cellLeft+app.cellWidth+20 and
+        cellTop-50 <= app.frog.y <= cellTop+app.cellHeight+20 and
+        app.plants[(x, y)] != 'dirt' and not app.plants[(x, y)].watered):
+        app.plants[(x, y)].watered = True
 
 def farm_onMouseMove(app, mouseX, mouseY):
     if app.shovelEquipped or app.wateringCanEquipped:
@@ -401,7 +438,6 @@ def drawCell(app, row, col):
     drawRect(cellLeft, cellTop, app.cellWidth, app.cellHeight,
             fill=fill, border=fill)
 
-
 def getCellLeftTop(app, row, col):
     cellLeft = app.boardLeft + col * app.cellWidth
     cellTop = app.boardTop + row * app.cellHeight
@@ -427,13 +463,13 @@ def drawTools(app):
 
 def drawField(app):
     for cell in app.plants:
+        x, y = cell
         if app.plants[cell] == 'dirt':
-            x, y = cell
-            if (x-50 <= app.frog.x <= x+app.cellWidth+20 and
-            y-50 <= app.frog.y <= y+app.cellHeight+20):
-                drawLabel('Plant Here', x+app.cellWidth/2, y+app.cellHeight/2)
+            if (x-100 <= app.frog.x <= x+100 and
+            y-100 <= app.frog.y <= y+100):
+                drawLabel('Plant Here', x, y)
         else:
-            app.plants[cell].draw()
+            app.plants[cell].draw(x, y)
 
 #------------------------------------------Settings
 def settings_redrawAll(app):
@@ -460,6 +496,11 @@ def getSelectedItem(app, x, y):
        if (xCoord <= x <= app.inventory[i].width+xCoord and 
            yCoord <= y <= app.inventory[i].height+yCoord):
            return app.inventory[i]
+
+#------------------------------------------Bedtime
+def bedtime_redrawAll(app):
+    drawRect(0, 0, app.width, app.height, fill='lightBlue')
+    drawLabel('zzzzzzz :3', app.width/2, app.height/2, size=20)
 
 def main():
     runAppWithScreens(initialScreen='start')
