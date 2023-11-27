@@ -109,7 +109,6 @@ class Plant:
         drawImage(image, self.x, self.y, align='center',
                   width=self.width, height=self.height)
             
-
 class Button:
     buttonImages = {'farm': Image.open("images/play.png"),
                     'about': Image.open("images/about.png"),
@@ -157,10 +156,51 @@ class LittleButton(Button):
         drawImage(image, self.x, self.y,
                   width=self.width, height=self.height)
 
+class Item: #stuff in inventory
+    def __init__(self, thing):
+        self.type = thing
+        self.num = 1
+
+    def __repr__(self):
+        return f'{self.type}'
+
+class Crop(Item):
+    def __init__(self, thing):
+        super().__init__(thing)
+        self.image = Plant.plantImages[(f'{self.type}-1')]
+        self.width, self.height = getNewDims(self.image, 8)
+
+    def draw(self, app, x, y):
+        image = CMUImage(self.image)
+        drawImage(image, x, y, width=self.width, height=self.height)
+        drawLabel(f'{self.type}  x{self.num}', 
+                  x+self.width*2, y+self.height/2, align='left')
+        if self == app.selectedItem:
+            border = 'green'
+        else: border = None
+        drawRect(x, y, self.width, self.height, fill=None, border=border)
+
+class Seed(Item):
+    def __init__(self, thing):
+        super().__init__(thing)
+        self.image = Image.open('images/seed.png')
+        self.width, self.height = getNewDims(self.image, 8)
+
+    def draw(self, app, x, y):
+        image = CMUImage(self.image)
+        drawImage(image, x, y, width=self.width, height=self.height)
+        drawLabel(f'{self.type} seeds  x{self.num}', 
+                  x+self.width*2, y+self.height/2, align='left')
+        if self == app.selectedItem:
+            border = 'green'
+        else: border = None
+        drawRect(x, y, self.width, self.height, fill=None, border=border)
+
+
+#------------------------------------------
 def getNewDims(image, factor):
     width,height = image.width, image.height
     return width/factor, height/factor 
-
 
 def onAppStart(app):
     app.width = 944
@@ -173,14 +213,11 @@ def onAppStart(app):
     app.cellHeight = 100
     app.boardTop = 0
     app.boardLeft = 0
-    app.cellCoords = set()
-    for row in range(app.rows):
-        for col in range(app.cols):
-            app.cellCoords.add((getCellLeftTop(app, row, col)))
     app.scrollCounter = 0
 # frog :3
     app.frog = Frog(app)
     app.frog.counter = 0
+    app.day = 0
 # plants
     app.plants = dict()
     app.dirtCells = set()
@@ -196,6 +233,8 @@ def onAppStart(app):
     app.farmButtons = [app.seeSettings, app.seeInventory, app.shovel, app.wateringCan]
     
     app.shovelEquipped = app.wateringCanEquipped = False
+    app.selectedItem = None
+    app.inventory = [Crop('strawberry'), Crop('tomato'), Seed('wheat')]
     
 
 #------------------------------------------START
@@ -273,20 +312,25 @@ def farm_onMousePress(app, mouseX, mouseY):
             cellLeft-50 <= app.frog.x <= cellLeft+app.cellWidth+20 and
             cellTop-50 <= app.frog.y <= cellTop+app.cellHeight+20):
             setActiveScreen('inventory')
-            app.selectedCrop = getSelectedCrop(app)
-            app.plants[cellLeft, cellTop] = Plant(app.selectedCrop)
 
 
 def getCellClicked(app, x, y):
-    for cellLeft, cellTop in app.cellCoords:
+    for cellLeft, cellTop in getAllCellCoords(app):
         if (cellLeft <= x <= cellLeft+app.cellWidth 
             and cellTop <= y <= cellTop+app.cellHeight):
             return (cellLeft, cellTop)
 
+def getAllCellCoords(app):
+    cellCoords=set()
+    for row in range(app.rows):
+        for col in range(app.cols):
+            cellCoords.add((getCellLeftTop(app, row, col)))
+    return cellCoords
+
 def dig(app, mouseX, mouseY):
     if mouseY < 590: #don't dig when equipping the tool
             cellCoords = (getCellClicked(app, mouseX, mouseY))
-            if cellCoords not in app.dirtCells:
+            if cellCoords not in app.dirtCells and cellCoords != None:
                 app.dirtCells.add(cellCoords)
                 app.plants[cellCoords] = 'dirt' #can put something here
                 if len(app.dirtCells) % 5 == 0:
@@ -320,24 +364,27 @@ def farm_onStep(app):
     app.frog.counter += 1
 
 def scroll(app, direction):
-    if app.cols >= 20: return
+    # if app.cols >= 20: return
+    app.boardLeft -= 10
+    app.scrollCounter += 10
+    if app.scrollCounter % 70 == 0:
+        app.cols +=1
     if direction == 'left':
-        app.boardLeft -= 10
-        app.scrollCounter += 10
-        if app.scrollCounter % 70 == 0:
-            app.cols +=1
-        for row in range(app.rows):
-            app.cellCoords.add((getCellLeftTop(app, row, app.cols)))
         for cellLeft, cellTop in copy.copy(app.dirtCells):
             newCellLeft = cellLeft - 10
             app.dirtCells.add((newCellLeft, cellTop))
             app.dirtCells.remove((cellLeft, cellTop))
-        for cellLeft, cellTop in copy.copy(app.cellCoords):
+        for key in copy.copy(app.plants):
+            cellLeft, cellTop = key
+            plant = app.plants[key]
             newCellLeft = cellLeft - 10
-            app.cellCoords.add((newCellLeft, cellTop))
-            app.cellCoords.remove((cellLeft, cellTop))
+            app.plants[(newCellLeft, cellTop)] = plant
+            app.plants.pop(key)
     elif direction == 'right':
-        pass
+        for cellLeft, cellTop in copy.copy(app.dirtCells):
+            newCellLeft = cellLeft + 10
+            app.dirtCells.add((newCellLeft, cellTop))
+            app.dirtCells.remove((cellLeft, cellTop))
 
 #------------------------------------------Drawing a Board (CS Academy)
 def drawBoard(app):
@@ -351,14 +398,13 @@ def drawCell(app, row, col):
     if (cellLeft, cellTop) in app.dirtCells:
         fill='brown'
     else: fill='lightGreen'
-
     drawRect(cellLeft, cellTop, app.cellWidth, app.cellHeight,
-             fill=fill, border=fill)
+            fill=fill, border=fill)
+
 
 def getCellLeftTop(app, row, col):
     cellLeft = app.boardLeft + col * app.cellWidth
     cellTop = app.boardTop + row * app.cellHeight
-    # app.cellCoords.add((cellLeft, cellTop))
     return (cellLeft, cellTop)
 
 def drawTools(app):
@@ -395,13 +441,25 @@ def settings_redrawAll(app):
 
 #------------------------------------------Inventory
 def inventory_redrawAll(app):
-    pass
+    app.undo.draw()
+    for i in range(len(app.inventory)):
+        app.inventory[i].draw(app, app.width/2-80, 80+80*i)
 
-def inventory_onMousePress(app):
-    pass
+def inventory_onMousePress(app, mouseX, mouseY):
+    selected = getSelectedItem(app, mouseX, mouseY)
+    if selected != None:
+        app.selectedItem = selected
+    if app.undo.wasClicked(mouseX, mouseY):
+        setActiveScreen('farm')
+    
 
-def getSelectedCrop(app):
-    pass
+def getSelectedItem(app, x, y):
+   xCoord = app.width/2-80
+   for i in range(len(app.inventory)):
+       yCoord = 80+80*i
+       if (xCoord <= x <= app.inventory[i].width+xCoord and 
+           yCoord <= y <= app.inventory[i].height+yCoord):
+           return app.inventory[i]
 
 def main():
     runAppWithScreens(initialScreen='start')
