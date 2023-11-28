@@ -8,8 +8,10 @@ class Frog:
         self.hunger = 20
         self.sleep = 20
         self.counter = 0
+        self.careButtons = [LittleButton('eat'), LittleButton('sleep')]
 
         self.isMoving=self.doneWorking=self.atRightEdge=self.atLeftEdge=False
+        self.showMenu = False
         self.x = app.width/2
         self.y = app.height/2
         self.dx = 12
@@ -50,30 +52,47 @@ class Frog:
             image = self.walking[i % len(self.walking)]
             if self.direction == 'right':
                 image = image.transpose(Image.FLIP_LEFT_RIGHT)
-            newWidth, newHeight = getNewDims(image, 6)
+            self.width, self.height = getNewDims(image, 6)
             image = CMUImage(image)
             drawImage(image, self.x, self.y,align='center',
-                    width=newWidth,height=newHeight)
+                    width=self.width,height=self.height)
         else:
             image = self.blinking[i % len(self.blinking)]
-            newWidth, newHeight = getNewDims(image, 6)
+            self.width, self.height = getNewDims(image, 6)
             image = CMUImage(image)
             drawImage(image, self.x, self.y,align='center',
-                    width=newWidth, height=newHeight)
+                    width=self.width, height=self.height)
         drawLabel(f'Sleep:{self.sleep} Hunger:{self.hunger}', 
                   20, 20, size=16, align='left')
         if self.doneWorking:
             drawLabel('I need some care!', self.x, 
                       self.y-75, size=16)
-            
+        if self.showMenu:
+            self.careButtons[0].x =self.careButtons[1].x =self.x + 50
+            self.careButtons[0].y = self.y
+            self.careButtons[1].y = self.y - 50
+            for button in self.careButtons:
+                button.draw()
+
+
+    def wasClicked(self, x, y):
+        if (self.x - self.width/2 <= x <= self.x + self.width/2 and 
+            self.y - self.height/2 <= y <= self.y +self.height/2):
+            return True
+        return False
+
     def bedtime(self, app):
         self.sleep = 20
+        app.day += 1
         for cell in app.plants:
             if app.plants[cell] != 'dirt' and app.plants[cell].watered:
                 app.plants[cell].grow()
+                app.plants[cell].watered = False
 
     def eat(self):
-        pass
+        if self.hunger + 3 > 20:
+            self.hunger = 20
+        else: self.hunger += 3
             
 class Plant:
     harvestTimes = {'tomato': 3, 
@@ -103,11 +122,11 @@ class Plant:
         self.days = 0 
         self.watered = False
 
-    def grow(self): # call when for watered plants when we sleep!!
+    def grow(self): #call when for watered plants when sleep!!
         self.days += 1
         if self.days == Plant.harvestTimes[self.species]:
             self.stage = 'ready!'
-        if self.days == 1:
+        elif self.days == 1:
             self.image = Image.open("images/sapling.png")
         elif self.days == 2:
             self.image = Plant.plantImages[f'{self.species}-0']
@@ -119,7 +138,7 @@ class Plant:
         self.width, self.height = getNewDims(self.image, 5)
         drawImage(image, x, y, align='center',
                   width=self.width, height=self.height)
-        if not self.watered:
+        if not self.watered and self.stage != 'ready':
             drawLabel("I'm thirsty!", x, y+20, size=16, fill='lightBlue')
             
 class Button:
@@ -129,14 +148,18 @@ class Button:
                     'shovel': Image.open('images/shovel.png'),
                     'wateringCan': Image.open('images/watering_can.png'),
                     'settings': Image.open('images/settings.png'),
-                    'inventory': Image.open('images/inventory.png')}
+                    'inventory': Image.open('images/inventory.png'),
+                    'eat': Image.open('images/eat.png'),
+                    'sleep': Image.open('images/sleep.png')}
     buttonPos = {'farm': (175, 200),
                  'about': (175,300),
                  'undo': (0,5),
                  'shovel': (472, 590),
                  'wateringCan': (402, 590),
                  'settings': (874, 5),
-                 'inventory': (804, 5)}
+                 'inventory': (804, 5),
+                 'eat': (None, None),
+                 'sleep': (None, None)}
     def __init__(self, task):
         self.task = task
         self.image = Button.buttonImages[task]
@@ -153,6 +176,7 @@ class Button:
                   width=self.width, height=self.height) # don't align center
         
     def wasClicked(self, mx, my):
+        if (self.x, self.y) == (None, None): return
         if (self.x < mx < (self.x + self.width) 
             and self.y < my < (self.y + self.height)):
             return True
@@ -187,7 +211,7 @@ class Crop(Item):
         image = CMUImage(self.image)
         drawImage(image, x, y, width=self.width, height=self.height)
         drawLabel(f'{self.type}  x{self.num}', 
-                  x+self.width*2, y+self.height/2, align='left')
+                  x+self.width*2, y+self.height/2, align='left', size=16)
         if self == app.selectedItem:
             border = 'green'
         else: border = None
@@ -203,7 +227,7 @@ class Seed(Item):
         image = CMUImage(self.image)
         drawImage(image, x, y, width=self.width, height=self.height)
         drawLabel(f'{self.type} seeds  x{self.num}', 
-                  x+self.width*2, y+self.height/2, align='left')
+                  x+self.width*2, y+self.height/2, align='left', size=16)
         if self == app.selectedItem:
             border = 'green'
         else: border = None
@@ -307,11 +331,16 @@ def farm_onMousePress(app, mouseX, mouseY):
             app.wateringCanEquipped = not app.wateringCanEquipped
             app.toolX, app.toolY = mouseX, mouseY
         elif clicked.task == 'settings':
-            # setActiveScreen('settings')
-            app.frog.bedtime(app)
+            setActiveScreen('settings')
         elif clicked.task == 'inventory':
             setActiveScreen('inventory')
-
+    elif app.frog.wasClicked(mouseX, mouseY):
+        app.frog.showMenu = True
+    if app.frog.showMenu:
+        for button in app.frog.careButtons:
+            if button.wasClicked(mouseX, mouseY):
+                app.frog.showMenu = False
+                setActiveScreen(button.task)
     #digging with shovel
     if app.shovelEquipped and not app.frog.doneWorking:
         dig(app, mouseX, mouseY)
@@ -321,10 +350,9 @@ def farm_onMousePress(app, mouseX, mouseY):
     #watering the plants
     if app.wateringCanEquipped and not app.frog.doneWorking:
         water(app, mouseX, mouseY)
-
     #if not shoveling/watering check if trying to plant a crop
     #can only plant if frog is near cell
-    if (not app.shovelEquipped and 
+    elif (not app.shovelEquipped and 
         not app.wateringCanEquipped and 
         not app.frog.doneWorking):
         plantSeed(app, mouseX, mouseY)
@@ -488,7 +516,6 @@ def inventory_onMousePress(app, mouseX, mouseY):
     if app.undo.wasClicked(mouseX, mouseY):
         setActiveScreen('farm')
     
-
 def getSelectedItem(app, x, y):
    xCoord = app.width/2-80
    for i in range(len(app.inventory)):
@@ -497,10 +524,37 @@ def getSelectedItem(app, x, y):
            yCoord <= y <= app.inventory[i].height+yCoord):
            return app.inventory[i]
 
-#------------------------------------------Bedtime
-def bedtime_redrawAll(app):
+#------------------------------------------SLEEP
+def sleep_redrawAll(app):
     drawRect(0, 0, app.width, app.height, fill='lightBlue')
     drawLabel('zzzzzzz :3', app.width/2, app.height/2, size=20)
+    app.frog.bedtime()
+    app.undo.draw()
+
+def sleep_onMousePress(app, mouseX, mouseY):
+    if app.undo.wasClicked(mouseX, mouseY):
+        setActiveScreen('farm')
+
+#------------------------------------------EAT
+def eat_redrawAll(app):
+    drawRect(0, 0, app.width, app.height, fill='pink')
+    drawRect(40, 40, app.width-80, app.height-80, fill='white')
+    app.undo.draw()
+    drawLabel('Click on something to eat!', app.width/2, 20, size=16)
+    drawLabel(f'Hunger: {app.frog.hunger}', 90, 20, size=16, align='left')
+    for i in range(len(app.inventory)):
+        app.inventory[i].draw(app, app.width/2-80, 80+80*i)
+
+def eat_onMousePress(app, mouseX, mouseY):
+    selected = getSelectedItem(app, mouseX, mouseY)
+    if selected != None:
+        if type(selected) == Crop:
+            i = app.inventory.index(selected)
+            app.inventory.pop(i)
+            app.frog.eat()
+    elif app.undo.wasClicked(mouseX, mouseY):
+        setActiveScreen('farm')
+
 
 def main():
     runAppWithScreens(initialScreen='start')
