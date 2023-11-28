@@ -1,6 +1,7 @@
 from cmu_graphics import *
 from PIL import Image
-import copy
+import copy, random
+
 
 class Frog:
     def __init__(self, app):
@@ -250,7 +251,7 @@ def onAppStart(app):
     app.cellHeight = 100
     app.boardTop = 0
     app.boardLeft = 0
-    app.scrollCounter = 0
+    app.scrollX = 0
 # frog :3
     app.frog = Frog(app)
     app.day = 0
@@ -273,7 +274,7 @@ def onAppStart(app):
     app.selectedItem = None
     app.inventory = [Crop('strawberry'), Crop('tomato'), 
                      Seed('wheat')] #start empty
-    
+    app.forestSize = 40
 #------------------------------------------START
 def start_redrawAll(app):
     screen = Image.open("images/home.png")
@@ -372,8 +373,10 @@ def getAllCellCoords(app):
 
 def dig(app, mouseX, mouseY):
     if mouseY < 590: #don't dig when equipping the tool
-            if getCellClicked(app, mouseX, mouseY) != None:
-                cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
+            clicked = (getCellClicked(app, mouseX, mouseY))
+            print(clicked)
+            if clicked != None:
+                cellLeft, cellTop = clicked
                 if (cellLeft, cellTop) not in app.dirtCells:
                     app.dirtCells.add((cellLeft, cellTop))
                     x, y = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
@@ -428,46 +431,42 @@ def farm_onStep(app):
         else: app.frog.atLeftEdge = False
     app.frog.counter += 1
 
+    #go to scavanging area
+    if 400 <= app.frog.x <= 700 and app.frog.y <= 0:
+        setActiveScreen('forest')
+
 def scroll(app, direction):
-    # if app.cols >= 20: return
-    app.boardLeft -= 10
-    app.scrollCounter += 10
-    if app.scrollCounter % 70 == 0:
-        app.cols +=1
+    if app.cols < 20: app.cols +=1
     if direction == 'left':
-        for cellLeft, cellTop in copy.copy(app.dirtCells):
-            newCellLeft = cellLeft - 10
-            app.dirtCells.add((newCellLeft, cellTop))
-            app.dirtCells.remove((cellLeft, cellTop))
-        for key in copy.copy(app.plants):
-            cellLeft, cellTop = key
-            plant = app.plants[key]
-            newCellLeft = cellLeft - 10
-            app.plants[(newCellLeft, cellTop)] = plant
-            app.plants.pop(key)
+        app.scrollX -= 10
     elif direction == 'right':
-        for cellLeft, cellTop in copy.copy(app.dirtCells):
-            newCellLeft = cellLeft + 10
-            app.dirtCells.add((newCellLeft, cellTop))
-            app.dirtCells.remove((cellLeft, cellTop))
+        if app.boardLeft + app.scrollX == 0: return
+        app.scrollX +=10
+    # for cellLeft, cellTop in copy.copy(app.dirtCells):
+    #         newCellLeft = cellLeft + app.scrollX
+    #         app.dirtCells.add((newCellLeft, cellTop))
+    #         app.dirtCells.remove((cellLeft, cellTop))
 
 #------------------------------------------Drawing a Board (CS Academy)
 def drawBoard(app):
     for row in range(app.rows):
         for col in range(app.cols):
             drawCell(app, row, col)
+    # "gate" to scavanging area
+    drawRect(400, 0, 300, 50, fill='green')
+    drawLabel('To Forest', 550, 20, size=16, fill='white')
 
 def drawCell(app, row, col):
     cellLeft, cellTop = getCellLeftTop(app, row, col)
     #if cell is crop cell, fill brown, else green
-    if (cellLeft, cellTop) in app.dirtCells:
+    if (cellLeft-app.scrollX, cellTop) in app.dirtCells:
         fill='brown'
     else: fill='lightGreen'
     drawRect(cellLeft, cellTop, app.cellWidth, app.cellHeight,
             fill=fill, border=fill)
 
 def getCellLeftTop(app, row, col):
-    cellLeft = app.boardLeft + col * app.cellWidth
+    cellLeft = app.boardLeft + app.scrollX + col * app.cellWidth
     cellTop = app.boardTop + row * app.cellHeight
     return (cellLeft, cellTop)
 
@@ -492,6 +491,7 @@ def drawTools(app):
 def drawField(app):
     for cell in app.plants:
         x, y = cell
+        x += app.scrollX
         if app.plants[cell] == 'dirt':
             if (x-100 <= app.frog.x <= x+100 and
             y-100 <= app.frog.y <= y+100):
@@ -527,12 +527,12 @@ def getSelectedItem(app, x, y):
 #------------------------------------------SLEEP
 def sleep_redrawAll(app):
     drawRect(0, 0, app.width, app.height, fill='lightBlue')
-    drawLabel('zzzzzzz :3', app.width/2, app.height/2, size=20)
-    app.frog.bedtime()
+    drawLabel('zZzzZzz...', app.width/2, app.height/2, size=20)
     app.undo.draw()
 
 def sleep_onMousePress(app, mouseX, mouseY):
     if app.undo.wasClicked(mouseX, mouseY):
+        app.frog.bedtime(app)
         setActiveScreen('farm')
 
 #------------------------------------------EAT
@@ -555,6 +555,51 @@ def eat_onMousePress(app, mouseX, mouseY):
     elif app.undo.wasClicked(mouseX, mouseY):
         setActiveScreen('farm')
 
+#------------------------------------------EAT
+def forest_redrawAll(app):
+    drawMap(app)
+
+def drawMap(app):
+    pass
+
+def forest_createMap(app): 
+    #diamond square algorithm source: 
+    #https://learn.64bitdragon.com/articles/computer-science/procedural-generation/the-diamond-square-algorithm 
+    app.forestMap = [[0]*app.forestSize for i in range(app.forestSize)]
+    
+    #step 1. set corners to same random value
+    randomValue = random.randint(0, 10)
+    app.forestMap[0][0] = randomValue
+    app.forestMap[0][app.forestSize-1] = randomValue
+    app.forestMap[app.forestSize - 1][0] = randomValue
+    app.forestMap[app.forestSize-1][app.forestSize-1] = randomValue
+
+    #step 2. set center index to average of conrners + a random displacement
+    randomDisplacement = random.randint(0, 10)
+    centerIndex = (app.forestMap-1)//2
+    app.forestMap[centerIndex][centerIndex] = randomValue + randomDisplacement
+
+    #step 3. set midpoints of edges to average of corners + a random displacement
+    rand = random.randint(0, 10)
+    #top point:
+    app.forestMap[0][centerIndex] = ((((app.forestMap[0][0] + 
+                                       app.forestMap[0][app.forestSize-1])//2 + 
+                                       rand)))
+    #bottom point: (same as top)
+    app.forestMap[0][centerIndex] = ((((app.forestMap[0][0] + 
+                                       app.forestMap[0][app.forestSize-1])//2 + 
+                                       rand)))
+    rand = random.randint(0, 10)
+    #left point:
+    app.forestMap[centerIndex][0] = ((((app.forestMap[0][0] + 
+                                       app.forestMap[app.forestSize-1][0])//2 + 
+                                       rand)))
+    #right point: (same as left)
+    app.forestMap[centerIndex][0] = ((((app.forestMap[0][0] + 
+                                       app.forestMap[app.forestSize-1][0])//2 + 
+                                       rand)))
+    #step 4. recurse and decrease randomDisplacement
+    return app.forestMap
 
 def main():
     runAppWithScreens(initialScreen='start')
