@@ -472,7 +472,7 @@ def drawBoard(app):
 def drawCell(app, row, col):
     cellLeft, cellTop = getCellLeftTop(app, row, col)
     #if cell is crop cell, fill brown, else green
-    if (cellLeft-app.scrollX, cellTop) in app.dirtCells:
+    if (cellLeft-scroll.X, cellTop) in app.dirtCells:
         fill='brown'
     else: fill='lightGreen'
     drawRect(cellLeft, cellTop, app.cellWidth, app.cellHeight,
