@@ -1,10 +1,4 @@
-from cmu_graphics import *
-import random, copy
-
-def onAppStart(app):
-    app.forestSize = 9 #must be odd and able to be odd when quartered
-    forest_createMap(app)
-    for L in app.forestMap: print(L)
+import copy, random
 
 def forest_createMap(app): 
     #diamond square algorithm source: 
@@ -22,8 +16,8 @@ def forest_createMap(app):
 def forest_createMapHelper(app, currMap, randomness):
     if len(currMap[0])<3: return
     else:
-        for L in currMap: print(L)
-        print('Before mod \n')
+        # for L in currMap: print(L)
+        # print('Before mod \n')
         randomDisplacement = random.randint(1, randomness)
         currMapEdge = len(currMap[0])-1
         #step 2. set center index to average of conrners +
@@ -57,8 +51,8 @@ def forest_createMapHelper(app, currMap, randomness):
                                             rand)))
 
 
-        for L in currMap: print(L)
-        print('After mod \n')
+        # for L in currMap: print(L)
+        # print('After mod \n')
         #ADD THIS TO INTO app.forestMap AT CORRECT IDENCIES
 
         #step 4. recurse and decrease randomDisplacement
@@ -89,8 +83,3 @@ def addToCurrMap(app, currMap, subMap, topLeftX, topLeftY):
     currMap[newCenter][newBottomX] = subMap[oldCenter][subMapEdge]
     currMap[newBottomY][newCenter] = subMap[subMapEdge][oldCenter]
 
-
-def main():
-    runApp()
-
-main()

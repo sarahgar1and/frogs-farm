@@ -1,6 +1,6 @@
 from cmu_graphics import *
 from PIL import Image
-import copy, random
+from mapGeneration import forest_createMap
 
 
 class Frog:
@@ -378,7 +378,6 @@ def getAllCellCoords(app):
 def dig(app, mouseX, mouseY):
     if mouseY < 590: #don't dig when equipping the tool
             clicked = (getCellClicked(app, mouseX, mouseY))
-            print(clicked)
             if clicked != None:
                 cellLeft, cellTop = clicked
                 if (cellLeft, cellTop) not in app.dirtCells:
@@ -437,6 +436,7 @@ def farm_onStep(app):
 
     #go to scavanging area
     if 400 <= app.frog.x <= 700 and app.frog.y <= 0:
+        forest_createMap(app)
         setActiveScreen('forest')
 
 def scroll(app, direction):
@@ -557,52 +557,21 @@ def eat_onMousePress(app, mouseX, mouseY):
     elif app.undo.wasClicked(mouseX, mouseY):
         setActiveScreen('farm')
 
-#------------------------------------------EAT
+#------------------------------------------SCAVANGING
 def forest_redrawAll(app):
     drawMap(app)
+    app.undo.draw()
 
 def drawMap(app):
     pass
 
-def forest_createMap(app): 
-    #diamond square algorithm source: 
-    #https://learn.64bitdragon.com/articles/computer-science/procedural-generation/the-diamond-square-algorithm 
-    app.forestMap = [[0]*app.forestSize for i in range(app.forestSize)]
-    
-    #step 1. set corners to same random value
-    randomValue = random.randint(0, 10)
-    app.forestMap[0][0] = randomValue
-    app.forestMap[0][app.forestSize-1] = randomValue
-    app.forestMap[app.forestSize - 1][0] = randomValue
-    app.forestMap[app.forestSize-1][app.forestSize-1] = randomValue
+def forest_onMousePress(app, mouseX, mouseY):
+    if app.undo.wasClicked(mouseX, mouseY):
+        app.frog.x, app.frog.y = app.width/2, app.height/2
+        app.frog.isMoving = False
+        setActiveScreen('farm')
 
-    #step 2. set center index to average of conrners + a random displacement
-    randomDisplacement = random.randint(0, 10)
-    centerIndex = (app.forestMap-1)//2
-    app.forestMap[centerIndex][centerIndex] = randomValue + randomDisplacement
-
-    #step 3. set midpoints of edges to average of corners + a random displacement
-    rand = random.randint(0, 10)
-    #top point:
-    app.forestMap[0][centerIndex] = ((((app.forestMap[0][0] + 
-                                       app.forestMap[0][app.forestSize-1])//2 + 
-                                       rand)))
-    #bottom point: (same as top)
-    app.forestMap[0][centerIndex] = ((((app.forestMap[0][0] + 
-                                       app.forestMap[0][app.forestSize-1])//2 + 
-                                       rand)))
-    rand = random.randint(0, 10)
-    #left point:
-    app.forestMap[centerIndex][0] = ((((app.forestMap[0][0] + 
-                                       app.forestMap[app.forestSize-1][0])//2 + 
-                                       rand)))
-    #right point: (same as left)
-    app.forestMap[centerIndex][0] = ((((app.forestMap[0][0] + 
-                                       app.forestMap[app.forestSize-1][0])//2 + 
-                                       rand)))
-    #step 4. recurse and decrease randomDisplacement
-    return app.forestMap
-
+#------------------------------------------
 def main():
     runAppWithScreens(initialScreen='start')
 
