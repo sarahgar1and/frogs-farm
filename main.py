@@ -77,6 +77,11 @@ class Frog:
             for button in self.careButtons:
                 button.draw()
 
+    def nearPlot(self, app, cellLeft, cellTop):
+        if (cellLeft-50 <= self.x <= cellLeft+app.cellWidth+20 and
+        cellTop-50 <= self.y <= cellTop+app.cellHeight+20):
+            return True
+        return False
 
     def wasClicked(self, x, y):
         if (self.x - self.width/2 <= x <= self.x + self.width/2 and 
@@ -98,24 +103,25 @@ class Frog:
         else: self.hunger += 3
             
 class Plant:
-    harvestTimes = {'tomato': 3, 
-                    'strawberry': 4,
-                    'wheat': 3,
-                    'blueberry': 5,
-                    'carrot': 3,
-                    'lettuce': 4}
-    plantImages = {'tomato-1': Image.open('images/tomato.png'),
-                   'strawberry-1': Image.open('images/strawberry.png'),
-                   'wheat-1': Image.open('images/wheat.png'),
-                   'blueberry-1': Image.open('images/blueberry.png'),
-                   'carrot-1': Image.open('images/carrot.png'),
-                   'lettuce-1': Image.open('images/lettuce.png'),
-                   'tomato-0': Image.open('images/baby_fruit.png'),
-                   'strawberry-0': Image.open('images/baby_fruit.png'),
-                   'wheat-0': Image.open('images/baby_wheat.png'),
-                   'blueberry-0': Image.open('images/baby_berry.png'),
-                   'carrot-0': Image.open('images/baby_leaves.png'),
-                   'lettuce-0': Image.open('images/baby_leaves.png')}
+    harvestTimes = {'tomato': 4, 
+                    'strawberry': 5,
+                    'wheat': 4,
+                    'blueberry': 6,
+                    'carrot': 4,
+                    'lettuce': 5}
+    plantImages = {'tomato-1': CMUImage(Image.open('images/tomato.png')),
+                   'strawberry-1': CMUImage(Image.open('images/strawberry.png')),
+                   'wheat-1': CMUImage(Image.open('images/wheat.png')),
+                   'blueberry-1': CMUImage(Image.open('images/blueberry.png')),
+                   'carrot-1': CMUImage(Image.open('images/carrot.png')),
+                   'lettuce-1':CMUImage(Image.open('images/lettuce.png')),
+                   'tomato-0': CMUImage(Image.open('images/baby_fruit.png')),
+                   'strawberry-0': CMUImage(Image.open('images/baby_fruit.png')),
+                   'wheat-0': CMUImage(Image.open('images/baby_wheat.png')),
+                   'blueberry-0': CMUImage(Image.open('images/baby_berry.png')),
+                   'carrot-0': CMUImage(Image.open('images/baby_leaves.png')),
+                   'lettuce-0': CMUImage(Image.open('images/baby_leaves.png'))}
+    saplingImage = CMUImage(Image.open("images/sapling.png"))
     def __init__(self, species):
         self.species = species
     # 4 stages: seed, baby, adolescent, adult  
@@ -132,17 +138,19 @@ class Plant:
         if self.days == Plant.harvestTimes[self.species]:
             self.stage = 'ready!'
         elif self.days == 1:
-            self.image = Image.open("images/sapling.png")
+            self.image = Plant.saplingImage
         elif self.days == 2:
             self.image = Plant.plantImages[f'{self.species}-0']
         elif self.days == 4: # spend 2 days as an adolescent
             self.image = Plant.plantImages[f'{self.species}-1']
     
-    def draw(self, x, y):
+    def draw(self,app, x, y):
         drawImage(self.image, x, y, align='center',
                   width=self.width, height=self.height)
-        if not self.watered and self.stage != 'ready':
+        if not self.watered and self.stage != 'ready!':
             drawLabel("I'm thirsty!", x, y+20, size=16, fill='lightBlue')
+        elif self.stage == 'ready!':
+            drawLabel("Harvest me!", x, y+20, size=16, fill='yellow')
             
 class Button:
     buttonImages = {'farm': Image.open("images/play.png"),
@@ -199,6 +207,8 @@ class Item: #stuff in inventory
     def __init__(self, thing):
         self.type = thing
         self.num = 1
+        self.image = Image.open('images/seed.png')
+        self.width, self.height = getNewDims(self.image, 8)
 
     def __repr__(self):
         return f'{self.type}'
@@ -207,8 +217,6 @@ class Crop(Item):
     def __init__(self, thing):
         super().__init__(thing)
         self.image = Plant.plantImages[(f'{self.type}-1')]
-        self.width, self.height = getNewDims(self.image, 8)
-        self.image = CMUImage(self.image)
 
     def draw(self, app, x, y):
         drawImage(self.image, x, y, width=self.width, height=self.height)
@@ -222,8 +230,6 @@ class Crop(Item):
 class Seed(Item):
     def __init__(self, thing):
         super().__init__(thing)
-        self.image = Image.open('images/seed.png')
-        self.width, self.height = getNewDims(self.image, 8)
         self.image = CMUImage(self.image)
 
     def draw(self, app, x, y):
@@ -275,7 +281,7 @@ def onAppStart(app):
     app.selectedItem = None
     app.inventory = [Crop('strawberry'), Crop('tomato'), 
                      Seed('wheat')] #start empty
-    app.forestSize = 40
+    app.forestSize = 9
 #images
     app.startScreen = Image.open("images/home.png")
     app.startWidth, app.startHeight = getNewDims(app.startScreen, 2.5) 
@@ -349,18 +355,18 @@ def farm_onMousePress(app, mouseX, mouseY):
     #digging with shovel
     if app.shovelEquipped and not app.frog.doneWorking:
         dig(app, mouseX, mouseY)
-    if app.frog.hunger == 0 or app.frog.sleep == 0:
-        app.frog.doneWorking = True
-    
     #watering the plants
-    if app.wateringCanEquipped and not app.frog.doneWorking:
+    elif app.wateringCanEquipped and not app.frog.doneWorking:
         water(app, mouseX, mouseY)
-    #if not shoveling/watering check if trying to plant a crop
+    #if not shoveling/watering check if trying to plant/harvest a crop
     #can only plant if frog is near cell
     elif (not app.shovelEquipped and 
         not app.wateringCanEquipped and 
         not app.frog.doneWorking):
         plantSeed(app, mouseX, mouseY)
+    
+    if app.frog.hunger == 0 or app.frog.sleep == 0:
+        app.frog.doneWorking = True
 
 def getCellClicked(app, x, y):
     for cellLeft, cellTop in getAllCellCoords(app):
@@ -392,14 +398,17 @@ def dig(app, mouseX, mouseY):
 def plantSeed(app, mouseX, mouseY):
     cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
     x, y  = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
-    if ((x, y) in app.plants and 
-        cellLeft-50 <= app.frog.x <= cellLeft+app.cellWidth+20 and
-        cellTop-50 <= app.frog.y <= cellTop+app.cellHeight+20):
-        setActiveScreen('inventory')
-        if type(app.selectedItem) == Seed:
-            seed = app.selectedItem
-            app.plants[(x, y)] = Plant(seed.type)
-
+    if ((x, y) in app.plants and app.frog.nearPlot(app, cellLeft, cellTop)):
+        if app.plants[(x, y)] == 'dirt':
+            setActiveScreen('inventory')
+            if type(app.selectedItem) == Seed:
+                seed = app.selectedItem
+                app.plants[(x, y)] = Plant(seed.type)
+        elif app.plants[(x, y)].stage == 'ready':
+            crop = Crop(app.plants[(x, y)].type)
+            app.inventory.append(crop)
+            app.plants.pop((x, y))
+    
 def water(app, mouseX, mouseY):
     cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
     x, y  = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
@@ -499,7 +508,7 @@ def drawField(app):
             y-100 <= app.frog.y <= y+100):
                 drawLabel('Plant Here', x, y)
         else:
-            app.plants[cell].draw(x, y)
+            app.plants[cell].draw(app, x, y)
 
 #------------------------------------------Settings
 def settings_redrawAll(app):
