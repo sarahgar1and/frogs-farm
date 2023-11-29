@@ -10,9 +10,9 @@ def forest_createMap(app):
     #diamond square algorithm source: 
     #https://learn.64bitdragon.com/articles/computer-science/procedural-generation/the-diamond-square-algorithm 
     app.forestMap = [[0]*app.forestSize for i in range(app.forestSize)]
-    randomness = 183
+    randomness = 10
     #step 1. set corners to same random value
-    randomValue = random.randint(1, 200)
+    randomValue = random.randint(1, 10)
     app.forestMap[0][0] = randomValue
     app.forestMap[0][app.forestSize-1] = randomValue
     app.forestMap[app.forestSize-1][0] = randomValue
@@ -73,7 +73,7 @@ def forest_createMapHelper(app, currMap, randomness):
             for row in range(newDim):
                 for col in range(newDim):
                     newMap[row][col] = currMapCopy[row+x][col+y]
-            forest_createMapHelper(app, newMap, randomness//2 +2)
+            forest_createMapHelper(app, newMap, randomness//2 +1)
             addToCurrMap(app, currMap, newMap, x, y)
 
 def addToCurrMap(app, currMap, subMap, topLeftX, topLeftY):

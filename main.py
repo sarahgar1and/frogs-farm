@@ -20,21 +20,26 @@ class Frog:
 
     # images/sprites:
         self.standing = Image.open("images/standing.png")
+        self.width, self.height = getNewDims(self.standing, 6)
+        self.standing = CMUImage(self.standing)
 
-        walkingSpriteList = [] # (From lecture demo)
+        walkingLeftSpriteList = [] # (From lecture demo)
+        walkingRightSpriteList = []
         walkingPng = Image.open("images/walking.png")
         for frame in range(walkingPng.n_frames):
             walkingPng.seek(frame)
             image = walkingPng.resize((walkingPng.size[0], walkingPng.size[1]))
-            walkingSpriteList.append(image)
-        self.walking = walkingSpriteList
+            walkingLeftSpriteList.append(CMUImage(image))
+            walkingRightSpriteList.append(CMUImage(image.transpose(Image.FLIP_LEFT_RIGHT)))
+        self.walkingLeft = walkingLeftSpriteList
+        self.walkingRight = walkingRightSpriteList
 
         blinkingSpriteList = []
         blinkingPng = Image.open('images/blinking.png')
         for frame in range(blinkingPng.n_frames):
             blinkingPng.seek(frame)
             image = blinkingPng.resize((blinkingPng.size[0], blinkingPng.size[1]))
-            blinkingSpriteList.append(image)
+            blinkingSpriteList.append(CMUImage(image))
         self.blinking = blinkingSpriteList
 
     def takeStep(self, app):
@@ -50,17 +55,14 @@ class Frog:
     def draw(self):
         i = self.counter
         if self.isMoving:
-            image = self.walking[i % len(self.walking)]
             if self.direction == 'right':
-                image = image.transpose(Image.FLIP_LEFT_RIGHT)
-            self.width, self.height = getNewDims(image, 6)
-            image = CMUImage(image)
+                walkingList = self.walkingRight
+            else: walkingList = self.walkingLeft
+            image = walkingList[i % len(walkingList)]
             drawImage(image, self.x, self.y,align='center',
                     width=self.width,height=self.height)
         else:
             image = self.blinking[i % len(self.blinking)]
-            self.width, self.height = getNewDims(image, 6)
-            image = CMUImage(image)
             drawImage(image, self.x, self.y,align='center',
                     width=self.width, height=self.height)
         drawLabel(f'Sleep:{self.sleep} Hunger:{self.hunger}', 
@@ -119,6 +121,8 @@ class Plant:
     # 4 stages: seed, baby, adolescent, adult  
         self.stage = 'seed' 
         self.image = Image.open("images/seed.png")
+        self.width, self.height = getNewDims(self.image, 5)
+        self.image = CMUImage(self.image)
     # harvestable once daysTillHarvest == harvestTime
         self.days = 0 
         self.watered = False
@@ -135,9 +139,7 @@ class Plant:
             self.image = Plant.plantImages[f'{self.species}-1']
     
     def draw(self, x, y):
-        image = CMUImage(self.image)
-        self.width, self.height = getNewDims(self.image, 5)
-        drawImage(image, x, y, align='center',
+        drawImage(self.image, x, y, align='center',
                   width=self.width, height=self.height)
         if not self.watered and self.stage != 'ready':
             drawLabel("I'm thirsty!", x, y+20, size=16, fill='lightBlue')
@@ -164,16 +166,15 @@ class Button:
     def __init__(self, task):
         self.task = task
         self.image = Button.buttonImages[task]
+        self.width, self.height = getNewDims(self.image, 6)
+        self.image = CMUImage(self.image)
         self.x, self.y = Button.buttonPos[task]
     
     def __repr__(self):
         return f'{self.task}'
 
     def draw(self): #For big letter buttons
-        image = self.image
-        self.width, self.height = getNewDims(image, 6)
-        image = CMUImage(image)
-        drawImage(image, self.x, self.y,
+        drawImage(self.image, self.x, self.y,
                   width=self.width, height=self.height) # don't align center
         
     def wasClicked(self, mx, my):
@@ -186,12 +187,12 @@ class Button:
 class LittleButton(Button):
     def __init__(self, task):
         super().__init__(task)
+        self.image = Button.buttonImages[task]
+        self.width, self.height = getNewDims(self.image, 8)
+        self.image = CMUImage(self.image)
     
     def draw(self):
-        image = self.image
-        self.width, self.height = getNewDims(image, 8)
-        image = CMUImage(image)
-        drawImage(image, self.x, self.y,
+        drawImage(self.image, self.x, self.y,
                   width=self.width, height=self.height)
 
 class Item: #stuff in inventory
@@ -207,10 +208,10 @@ class Crop(Item):
         super().__init__(thing)
         self.image = Plant.plantImages[(f'{self.type}-1')]
         self.width, self.height = getNewDims(self.image, 8)
+        self.image = CMUImage(self.image)
 
     def draw(self, app, x, y):
-        image = CMUImage(self.image)
-        drawImage(image, x, y, width=self.width, height=self.height)
+        drawImage(self.image, x, y, width=self.width, height=self.height)
         drawLabel(f'{self.type}  x{self.num}', 
                   x+self.width*2, y+self.height/2, align='left', size=16)
         if self == app.selectedItem:
@@ -223,10 +224,10 @@ class Seed(Item):
         super().__init__(thing)
         self.image = Image.open('images/seed.png')
         self.width, self.height = getNewDims(self.image, 8)
+        self.image = CMUImage(self.image)
 
     def draw(self, app, x, y):
-        image = CMUImage(self.image)
-        drawImage(image, x, y, width=self.width, height=self.height)
+        drawImage(self.image, x, y, width=self.width, height=self.height)
         drawLabel(f'{self.type} seeds  x{self.num}', 
                   x+self.width*2, y+self.height/2, align='left', size=16)
         if self == app.selectedItem:
@@ -275,13 +276,19 @@ def onAppStart(app):
     app.inventory = [Crop('strawberry'), Crop('tomato'), 
                      Seed('wheat')] #start empty
     app.forestSize = 40
+#images
+    app.startScreen = Image.open("images/home.png")
+    app.startWidth, app.startHeight = getNewDims(app.startScreen, 2.5) 
+    app.startScreen = CMUImage(app.startScreen)
+
+    app.aboutScreen = Image.open('images/aboutscreen.png')
+    app.aboutWidth, app.aboutHeight = getNewDims(app.aboutScreen, 2.5)
+    app.aboutScreen = CMUImage(app.aboutScreen)
+
 #------------------------------------------START
 def start_redrawAll(app):
-    screen = Image.open("images/home.png")
-    newWidth, newHeight = getNewDims(screen, 2.5) 
-    screen = CMUImage(screen)
-    drawImage(screen, app.width/2, app.height/2, 
-              align='center', width=newWidth, height=newHeight)
+    drawImage(app.startScreen, app.width/2, app.height/2, 
+              align='center', width=app.startWidth, height=app.startHeight)
     app.play.draw()
     app.about.draw()
 
@@ -292,11 +299,8 @@ def start_onMousePress(app, mouseX, mouseY):
             break
 
 def about_redrawAll(app):
-    screen = Image.open('images/aboutscreen.png')
-    width, height = getNewDims(screen, 2.5)
-    screen = CMUImage(screen)
-    drawImage(screen, app.width/2, app.height/2, 
-              align='center', width=width, height=height)
+    drawImage(app.aboutScreen, app.width/2, app.height/2, 
+              align='center', width=app.aboutWidth, height=app.aboutHeight)
     app.undo.draw()
 
 def about_onMousePress(app, mouseX, mouseY):
@@ -336,7 +340,7 @@ def farm_onMousePress(app, mouseX, mouseY):
         elif clicked.task == 'inventory':
             setActiveScreen('inventory')
     elif app.frog.wasClicked(mouseX, mouseY):
-        app.frog.showMenu = True
+        app.frog.showMenu = not app.frog.showMenu
     if app.frog.showMenu:
         for button in app.frog.careButtons:
             if button.wasClicked(mouseX, mouseY):
@@ -473,20 +477,18 @@ def getCellLeftTop(app, row, col):
 def drawTools(app):
     if app.shovelEquipped:
         image = app.shovel.image
-        width, height = getNewDims(image, 8)
-        image = CMUImage(image)
         drawImage(image, app.toolX, app.toolY, 
-                  align='center', width=width, height=height)
-        drawRect(app.shovel.x, app.shovel.y, width, height,
+                  align='center', width=app.shovel.width, 
+                  height=app.shovel.height)
+        drawRect(app.shovel.x, app.shovel.y, app.shovel.width, app.shovel.height,
                   fill=None, border='green')
     elif app.wateringCanEquipped:
         image = app.wateringCan.image
-        width, height = getNewDims(image, 8)
-        image = CMUImage(image)
         drawImage(image, app.toolX, app.toolY, 
-                  align='center', width=width, height=height)
-        drawRect(app.wateringCan.x, app.wateringCan.y, width, height,
-                  fill=None, border='green')
+                  align='center', width=app.wateringCan.width, 
+                  height=app.wateringCan.height)
+        drawRect(app.wateringCan.x, app.wateringCan.y, app.wateringCan.width, 
+                 app.wateringCan.height, fill=None, border='green')
 
 def drawField(app):
     for cell in app.plants:
