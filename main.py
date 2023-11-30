@@ -66,8 +66,17 @@ class Frog:
             image = self.blinking[i % len(self.blinking)]
             drawImage(image, self.x, self.y,align='center',
                     width=self.width, height=self.height)
-        drawLabel(f'Sleep:{self.sleep} Hunger:{self.hunger}', 
-                  20, 20, size=16, align='left')
+        #metrics
+        drawLabel("Sleep: ", 20, 616, align='left', size=14)
+        drawRect(75, 616, self.sleep*10, 10, fill='blue', border=None, 
+                 align='left')
+        drawRect(75, 616, 200, 10, fill=None, border='black', align='left')
+        drawLabel("Hunger: ", 20, 636, align='left', size=14)
+        drawRect(75, 636, self.hunger*10, 10, fill='orange', border=None,
+                 align='left')
+        drawRect(75, 636, 200, 10, fill=None, border='black',align='left')
+        # drawLabel(f'Sleep:{self.sleep} Hunger:{self.hunger}', 
+        #           20, 20, size=16, align='left')
         if self.doneWorking:
             drawLabel('I need some care!', self.x, 
                       self.y-75, size=16)
@@ -296,7 +305,8 @@ def onAppStart(app):
         app.rainSpriteList.append(CMUImage(image))
 
     app.weather = 'sunny'
-
+    app.forestScrollX = app.forestScrollY = 0
+    app.goodiesList = [Crop('strawberry'), Crop('blueberry')]
 
 #------------------------------------------START
 def start_redrawAll(app):
@@ -461,6 +471,7 @@ def farm_onStep(app):
     #go to scavanging area
     if 400 <= app.frog.x <= 700 and app.frog.y <= 0:
         forest_createMap(app)
+        app.frog.x, app.frog.y = app.width/2, app.height/2
         setActiveScreen('forest')
 
 def scroll(app, direction):
@@ -610,7 +621,7 @@ def forest_redrawAll(app):
 def drawMap(app):
     for row in range(len(app.forestMap)):
         for col in range(len(app.forestMap[0])):
-            if app.forestMap[row][col] <= 5:
+            if app.forestMap[row][col] <= 10:
                 fill='lightGreen'
             else: fill='green'
             drawForestCell(app, row, col, fill)
@@ -619,10 +630,15 @@ def drawForestCell(app, row, col, fill):
     cellLeft, cellTop = getForestCellLeftTop(app, row, col)
     drawRect(cellLeft, cellTop, 50, 50, 
              fill=fill, border=fill)
+    if app.forestMap[row][col] == app.randomValue:
+        #this is the random value used to initialize the map board
+        #so it shouldn't appear too frequently
+        # goodieIndex = random.randint(0, len(app.goodiesList)-1)
+        app.goodiesList[1].draw(app, cellLeft, cellTop)
 
 def getForestCellLeftTop(app, row, col):
-    cellLeft = col * 50
-    cellTop = row * 50
+    cellLeft = app.forestScrollX + col * 50
+    cellTop = app.forestScrollY + row * 50
     return (cellLeft, cellTop)
 
 def forest_onMousePress(app, mouseX, mouseY):
@@ -630,6 +646,28 @@ def forest_onMousePress(app, mouseX, mouseY):
         app.frog.x, app.frog.y = app.width/2, app.height/2
         app.frog.isMoving = False
         setActiveScreen('farm')
+
+def forest_onKeyPress(app, key):
+    if key == 'left' or key == 'right' or key =='up' or key == 'down':
+        app.frog.direction = key
+        app.frog.isMoving = True    
+
+def forest_onKeyRelease(app, key):
+    app.frog.isMoving = False
+
+def forest_onStep(app):
+    if app.frog.isMoving:
+        app.frog.takeStep(app)
+        if app.frog.x >= app.width - app.margin:
+            # scroll(app, 'left')
+            app.frog.atRightEdge = True
+        else: app.frog.atRightEdge = False
+        if app.frog.x <= app.margin:
+            # scroll(app, 'right')
+            app.frog.atLeftEdge = True
+        else: app.frog.atLeftEdge = False
+    app.frog.counter +=1
+
 
 #------------------------------------------
 def main():

@@ -9,12 +9,13 @@ def forest_createMap(app):
     app.forestMap = [[0]*app.forestSize for i in range(app.forestSize)]
     randomness = 10
     #step 1. set corners to same random value
-    randomValue = random.randint(1, 10)
-    app.forestMap[0][0] = randomValue
-    app.forestMap[0][app.forestSize-1] = randomValue
-    app.forestMap[app.forestSize-1][0] = randomValue
-    app.forestMap[app.forestSize-1][app.forestSize-1] = randomValue
-    return forest_createMapHelper(app, randomness, app.forestSize-1, 0, 0)
+    app.randomValue = random.randint(1, 10)
+    app.forestMap[0][0] = app.randomValue
+    app.forestMap[0][app.forestSize-1] = app.randomValue
+    app.forestMap[app.forestSize-1][0] = app.randomValue
+    app.forestMap[app.forestSize-1][app.forestSize-1] = app.randomValue
+
+    forest_createMapHelper(app, randomness, app.forestSize-1, 0, 0)
 
 def forest_createMapHelper(app, randomness, subMapWidth, topLeftX, topLeftY):
     if subMapWidth < 1: return
@@ -25,7 +26,7 @@ def forest_createMapHelper(app, randomness, subMapWidth, topLeftX, topLeftY):
         #step 2. set center index to average of conrners +
         #  a random displacement
         centerIndexX = (currMapEdgeX+topLeftX)//2
-        centerIndexY = (currMapEdgeX+topLeftY)//2
+        centerIndexY = (currMapEdgeY+topLeftY)//2
         sumOfCorners = ((((app.forestMap[topLeftX][topLeftY] + 
                            app.forestMap[topLeftX][currMapEdgeY] + 
                           app.forestMap[currMapEdgeX][topLeftY] + 
@@ -63,9 +64,8 @@ def forest_createMapHelper(app, randomness, subMapWidth, topLeftX, topLeftY):
         newTopLefts = [(topLeftX, topLeftY), (topLeftX, centerIndexY), 
                        (centerIndexX, topLeftY), (centerIndexX, centerIndexY)]
         for x, y in newTopLefts:
-            print(x,y)
-            if (x,y) == (0,10) or (x,y) == (10,0):
-                forest_createMapHelper(app, randomness//2 +1, subMapWidth//2, x, y)
+            forest_createMapHelper(app, randomness//2 +1, subMapWidth//2, x, y)
 
-forest_createMap(app)
-for L in app.forestMap: print(L)
+# forest_createMap(app)
+# for L in app.forestMap: print(L)
+
