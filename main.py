@@ -1,6 +1,6 @@
 from cmu_graphics import *
+from mapGeneration import *
 from PIL import Image
-from mapGeneration import forest_createMap
 import random
 
 
@@ -213,7 +213,8 @@ class Item: #stuff in inventory
         self.type = thing
         self.num = 1
         self.image = Image.open('images/seed.png')
-        self.width, self.height = getNewDims(self.image, 8)
+        self.width, self.height = getNewDims(self.image, 6) #100 x 100
+        # print(self.width, self.height)
 
     def __repr__(self):
         return f'{self.type}'
@@ -224,13 +225,13 @@ class Crop(Item):
         self.image = Plant.plantImages[(f'{self.type}-1')]
 
     def draw(self, app, x, y):
-        drawImage(self.image, x, y, width=self.width, height=self.height)
+        drawImage(self.image, x, y, width=self.width, height=self.height,
+                   align='left')
         drawLabel(f'{self.type}  x{self.num}', 
-                  x+self.width*2, y+self.height/2, align='left', size=16)
+                  x+self.width/2, y+self.height/2, size=16)
         if self == app.selectedItem:
-            border = 'green'
-        else: border = None
-        drawRect(x, y, self.width, self.height, fill=None, border=border)
+            self.border = 'green'
+        else: self.border = None
 
 class Seed(Item):
     def __init__(self, thing):
@@ -238,13 +239,13 @@ class Seed(Item):
         self.image = CMUImage(self.image)
 
     def draw(self, app, x, y):
-        drawImage(self.image, x, y, width=self.width, height=self.height)
-        drawLabel(f'{self.type} seeds  x{self.num}', 
-                  x+self.width*2, y+self.height/2, align='left', size=16)
+        drawImage(self.image, x, y, width=self.width, height=self.height, 
+                  align='left')
+        drawLabel(f'{self.type}  x{self.num}', 
+                  x+self.width/2, y+self.height/2, size=16)
         if self == app.selectedItem:
-            border = 'green'
-        else: border = None
-        drawRect(x, y, self.width, self.height, fill=None, border=border)
+            self.border = 'green'
+        else: self.border = None
 
 
 #------------------------------------------
@@ -267,6 +268,7 @@ def onAppStart(app):
 # frog :3
     app.frog = Frog(app)
     app.day = 0
+    app.money = 20
 # plants
     app.plants = dict() #positions of all plant cells and species
     app.dirtCells = set() #cellLeft, cellTop of all 'hoed' cells
@@ -284,8 +286,8 @@ def onAppStart(app):
     
     app.shovelEquipped = app.wateringCanEquipped = False
     app.selectedItem = None
-    app.inventory = [Crop('strawberry'), Crop('tomato'), 
-                     Seed('wheat')] #start empty
+    app.inventory = [[Crop('strawberry'), Crop('tomato'), Crop('blueberry')], 
+                     [Seed('wheat'), None, Seed('tomato')]] #start empty
 #images
     app.startScreen = Image.open("images/home.png")
     app.startWidth, app.startHeight = getNewDims(app.startScreen, 2.5) 
@@ -295,8 +297,6 @@ def onAppStart(app):
     app.aboutWidth, app.aboutHeight = getNewDims(app.aboutScreen, 2.5)
     app.aboutScreen = CMUImage(app.aboutScreen)
 
-# rain gif source: https://www.pixilart.com/art/rain-gif-3ca3259bfc95c45 
-# https://gifer.com/en/2ii5 
     app.rainSpriteList = []
     rainGif = Image.open('images/rain.png')
     for frame in range(rainGif.n_frames):
@@ -542,24 +542,43 @@ def settings_redrawAll(app):
 
 #------------------------------------------Inventory
 def inventory_redrawAll(app):
+    drawRect(0, 0, app.width, app.height, fill='green')
+    drawRect(40, 40, app.width-80, app.height-80, fill='white')
+    drawLabel("Your Stuff:", app.width/2, 20, fill='white', size=20)
     app.undo.draw()
-    for i in range(len(app.inventory)):
-        app.inventory[i].draw(app, app.width/2-80, 80+80*i)
+    app.seeInventory.draw()
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            drawInventoryCell(app, row, col)
+
+def drawInventoryCell(app, row, col):
+    cellLeft, cellTop = getInventoryCellLeftTop(app, row, col)
+    if app.inventory[row][col] != None:
+        app.inventory[row][col].draw(app, cellLeft, cellTop)
+        drawRect(cellLeft, cellTop, 100, 75, fill=None, align='left', 
+                 border=app.inventory[row][col].border)
+
+def getInventoryCellLeftTop(app, row, col):
+    cellLeft = 100 + col * 100
+    cellTop = 100 + row * 100
+    return cellLeft, cellTop
 
 def inventory_onMousePress(app, mouseX, mouseY):
     selected = getSelectedItem(app, mouseX, mouseY)
     if selected != None:
-        app.selectedItem = selected
-    if app.undo.wasClicked(mouseX, mouseY):
+        app.selectedItem, row, col = selected
+    elif app.undo.wasClicked(mouseX, mouseY):
         setActiveScreen('farm')
+    elif app.seeInventory.wasClicked(mouseX, mouseY):
+        setActiveScreen('marketSell')
     
 def getSelectedItem(app, x, y):
-   xCoord = app.width/2-80
-   for i in range(len(app.inventory)):
-       yCoord = 80+80*i
-       if (xCoord <= x <= app.inventory[i].width+xCoord and 
-           yCoord <= y <= app.inventory[i].height+yCoord):
-           return app.inventory[i]
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            left, top = getInventoryCellLeftTop(app, row, col)
+            if (left <= x <= left + 100 and
+                top <= y <= top + 100):
+                return app.inventory[row][col], row, col
 
 #------------------------------------------SLEEP
 def sleep_redrawAll(app):
@@ -598,16 +617,22 @@ def eat_redrawAll(app):
     drawRect(40, 40, app.width-80, app.height-80, fill='white')
     app.undo.draw()
     drawLabel('Click on something to eat!', app.width/2, 20, size=16)
-    drawLabel(f'Hunger: {app.frog.hunger}', 90, 20, size=16, align='left')
-    for i in range(len(app.inventory)):
-        app.inventory[i].draw(app, app.width/2-80, 80+80*i)
+
+    drawLabel("Hunger: ", 20, 636, align='left', size=14)
+    drawRect(75, 636, app.frog.hunger*10, 10, fill='orange', border=None,
+                align='left')
+    drawRect(75, 636, 200, 10, fill=None, border='black',align='left')
+    
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            drawInventoryCell(app, row, col)
 
 def eat_onMousePress(app, mouseX, mouseY):
     selected = getSelectedItem(app, mouseX, mouseY)
     if selected != None:
+        selected, row, col = getSelectedItem(app, mouseX, mouseY)
         if type(selected) == Crop:
-            i = app.inventory.index(selected)
-            app.inventory.pop(i)
+            app.inventory[row].pop(col)
             app.frog.eat()
     elif app.undo.wasClicked(mouseX, mouseY):
         setActiveScreen('farm')
@@ -634,7 +659,7 @@ def drawForestCell(app, row, col, fill):
         #this is the random value used to initialize the map board
         #so it shouldn't appear too frequently
         # goodieIndex = random.randint(0, len(app.goodiesList)-1)
-        app.goodiesList[1].draw(app, cellLeft, cellTop)
+        app.goodie.draw(app, cellLeft, cellTop)
 
 def getForestCellLeftTop(app, row, col):
     cellLeft = app.forestScrollX + col * 50
@@ -668,8 +693,33 @@ def forest_onStep(app):
         else: app.frog.atLeftEdge = False
     app.frog.counter +=1
 
+#------------------------------------------MARKET
+def marketSell_redrawAll(app):
+    drawLabel(f'You have {app.money} frog coins!')
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            item = app.inventory[row][col]
+            if item != None and type(item) == Crop:
+                app.inventory[row][col].draw(app, 40+200*col, 100+20*row)
+                # drawLabel(f'{item.type} x{item.num}', 40 + 200*col, 
+                #           40+20*row, align='left', size=20)
+                
+def marketSell_onMousePress(app, mouseX, mouseY):
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            if (40 + 200*col <= mouseX <= 140 + 200*col and
+               100+20*row <= mouseY <= 140+20*row):
+                if app.inventory[row][col] != None:
+                    if app.inventory[row][col].num == 1:
+                        app.inventory[row].pop(col)
+                    else:
+                        app.inventory[row][col].num -= 1
+                    app.money += 10
 
-#------------------------------------------
+def marketBuy_redrawAll(app):
+    pass                
+
+
 def main():
     runAppWithScreens(initialScreen='start')
 

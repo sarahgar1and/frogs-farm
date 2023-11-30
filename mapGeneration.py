@@ -1,9 +1,9 @@
 from cmu_graphics import *
 import random
 
-app.forestSize = 21
-
 def forest_createMap(app): 
+    app.forestSize = 21
+    app.goodie = app.goodiesList[1]
     #diamond square algorithm source: 
     #https://learn.64bitdragon.com/articles/computer-science/procedural-generation/the-diamond-square-algorithm 
     app.forestMap = [[0]*app.forestSize for i in range(app.forestSize)]
