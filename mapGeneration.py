@@ -1,7 +1,7 @@
 from cmu_graphics import *
 import random
 
-app.forestSize = 9
+app.forestSize = 21
 
 def forest_createMap(app): 
     #diamond square algorithm source: 
@@ -20,48 +20,52 @@ def forest_createMapHelper(app, randomness, subMapWidth, topLeftX, topLeftY):
     if subMapWidth < 1: return
     else:
         randomDisplacement = random.randint(1, randomness)
-        currMapEdge = topLeftX + subMapWidth
+        currMapEdgeX = topLeftX + subMapWidth
+        currMapEdgeY = topLeftY + subMapWidth
         #step 2. set center index to average of conrners +
         #  a random displacement
-        centerIndex = (currMapEdge)//2
+        centerIndexX = (currMapEdgeX+topLeftX)//2
+        centerIndexY = (currMapEdgeX+topLeftY)//2
         sumOfCorners = ((((app.forestMap[topLeftX][topLeftY] + 
-                           app.forestMap[topLeftX][currMapEdge] + 
-                          app.forestMap[currMapEdge][topLeftY] + 
-                          app.forestMap[currMapEdge][currMapEdge])//4)))
+                           app.forestMap[topLeftX][currMapEdgeY] + 
+                          app.forestMap[currMapEdgeX][topLeftY] + 
+                          app.forestMap[currMapEdgeX][currMapEdgeY])//4)))
         
-        app.forestMap[centerIndex][centerIndex] = sumOfCorners + randomDisplacement
+        app.forestMap[centerIndexX][centerIndexY] = sumOfCorners + randomDisplacement
         
         #step 3. set midpoints of edges to average of corners +
         #a random displacement
         rand = random.randint(1, randomness)
         #left mid point: top left corner + bottom left corner
-        app.forestMap[topLeftX][centerIndex] = ((((app.forestMap[topLeftX][topLeftY] + 
-                                            app.forestMap[topLeftX][currMapEdge])//2 + 
+        app.forestMap[topLeftX][centerIndexY] = ((((app.forestMap[topLeftX][topLeftY] + 
+                                            app.forestMap[topLeftX][currMapEdgeY])//2 + 
                                             rand)))
         
         #right mid point: top right corner + bottom right corner 
-        app.forestMap[currMapEdge][centerIndex] = ((((app.forestMap[topLeftX][currMapEdge] + 
-                                            app.forestMap[currMapEdge][currMapEdge])//2 + 
+        app.forestMap[currMapEdgeX][centerIndexY] = ((((app.forestMap[currMapEdgeX][topLeftY] + 
+                                            app.forestMap[currMapEdgeY][currMapEdgeY])//2 + 
                                             rand)))
         
         rand = random.randint(1, randomness)
         #top mid point: top left corner + top right corner
-        app.forestMap[centerIndex][topLeftY] = ((((app.forestMap[topLeftX][topLeftY] + 
-                                            app.forestMap[currMapEdge][topLeftX])//2 + 
+        app.forestMap[centerIndexX][topLeftY] = ((((app.forestMap[topLeftX][topLeftY] + 
+                                            app.forestMap[currMapEdgeX][topLeftY])//2 + 
                                             rand)))
 
         #bottom mid point: bottom left corner + bottom right corner
-        app.forestMap[centerIndex][currMapEdge] = ((((app.forestMap[topLeftX][currMapEdge] + 
-                                            app.forestMap[currMapEdge][currMapEdge])//2 + 
+        app.forestMap[centerIndexX][currMapEdgeY] = ((((app.forestMap[topLeftX][currMapEdgeY] + 
+                                            app.forestMap[currMapEdgeX][currMapEdgeY])//2 + 
                                             rand)))
     
         #step 4. recurse and decrease randomDisplacement
         #Quarter the current portion we're looking at: new width = centerIndex
 
-        newTopLefts = [(0, 0), (0, centerIndex), (centerIndex, 0), 
-                       (centerIndex, centerIndex)]
+        newTopLefts = [(topLeftX, topLeftY), (topLeftX, centerIndexY), 
+                       (centerIndexX, topLeftY), (centerIndexX, centerIndexY)]
         for x, y in newTopLefts:
-            forest_createMapHelper(app, randomness//2 +1, subMapWidth//2, x, y)
+            print(x,y)
+            if (x,y) == (0,10) or (x,y) == (10,0):
+                forest_createMapHelper(app, randomness//2 +1, subMapWidth//2, x, y)
 
 forest_createMap(app)
 for L in app.forestMap: print(L)

@@ -1,6 +1,7 @@
 from cmu_graphics import *
 from PIL import Image
 from mapGeneration import forest_createMap
+import random
 
 
 class Frog:
@@ -89,13 +90,8 @@ class Frog:
             return True
         return False
 
-    def bedtime(self, app):
+    def bedtime(self):
         self.sleep = 20
-        app.day += 1
-        for cell in app.plants:
-            if app.plants[cell] != 'dirt' and app.plants[cell].watered:
-                app.plants[cell].grow()
-                app.plants[cell].watered = False
 
     def eat(self):
         if self.hunger + 3 > 20:
@@ -281,7 +277,6 @@ def onAppStart(app):
     app.selectedItem = None
     app.inventory = [Crop('strawberry'), Crop('tomato'), 
                      Seed('wheat')] #start empty
-    app.forestSize = 9
 #images
     app.startScreen = Image.open("images/home.png")
     app.startWidth, app.startHeight = getNewDims(app.startScreen, 2.5) 
@@ -290,6 +285,18 @@ def onAppStart(app):
     app.aboutScreen = Image.open('images/aboutscreen.png')
     app.aboutWidth, app.aboutHeight = getNewDims(app.aboutScreen, 2.5)
     app.aboutScreen = CMUImage(app.aboutScreen)
+
+# rain gif source: https://www.pixilart.com/art/rain-gif-3ca3259bfc95c45 
+# https://gifer.com/en/2ii5 
+    app.rainSpriteList = []
+    rainGif = Image.open('images/rain.png')
+    for frame in range(rainGif.n_frames):
+        rainGif.seek(frame)
+        image = rainGif.resize((rainGif.size[0]//2, rainGif.size[1]//2))
+        app.rainSpriteList.append(CMUImage(image))
+
+    app.weather = 'sunny'
+
 
 #------------------------------------------START
 def start_redrawAll(app):
@@ -327,6 +334,10 @@ def farm_redrawAll(app):
     app.shovel.draw()
 #tools
     drawTools(app)
+#weather
+    if app.weather == 'rain':
+        image = app.rainSpriteList[app.frog.counter % len(app.rainSpriteList)]
+        drawImage(image, app.width/2, app.height/2, align='center')
 
 def farm_onMousePress(app, mouseX, mouseY):
     clicked = None
@@ -351,9 +362,11 @@ def farm_onMousePress(app, mouseX, mouseY):
         for button in app.frog.careButtons:
             if button.wasClicked(mouseX, mouseY):
                 app.frog.showMenu = False
+                if button.task == 'sleep':
+                    updateWeather(app)
                 setActiveScreen(button.task)
     #digging with shovel
-    if app.shovelEquipped and not app.frog.doneWorking:
+    elif app.shovelEquipped and not app.frog.doneWorking:
         dig(app, mouseX, mouseY)
     #watering the plants
     elif app.wateringCanEquipped and not app.frog.doneWorking:
@@ -404,6 +417,8 @@ def plantSeed(app, mouseX, mouseY):
             if type(app.selectedItem) == Seed:
                 seed = app.selectedItem
                 app.plants[(x, y)] = Plant(seed.type)
+                if app.weather == 'rain':
+                    app.plants[(x,y)].watered = True
         elif app.plants[(x, y)].stage == 'ready':
             crop = Crop(app.plants[(x, y)].type)
             app.inventory.append(crop)
@@ -472,7 +487,7 @@ def drawBoard(app):
 def drawCell(app, row, col):
     cellLeft, cellTop = getCellLeftTop(app, row, col)
     #if cell is crop cell, fill brown, else green
-    if (cellLeft-scroll.X, cellTop) in app.dirtCells:
+    if (cellLeft-app.scrollX, cellTop) in app.dirtCells:
         fill='brown'
     else: fill='lightGreen'
     drawRect(cellLeft, cellTop, app.cellWidth, app.cellHeight,
@@ -538,13 +553,33 @@ def getSelectedItem(app, x, y):
 #------------------------------------------SLEEP
 def sleep_redrawAll(app):
     drawRect(0, 0, app.width, app.height, fill='lightBlue')
-    drawLabel('zZzzZzz...', app.width/2, app.height/2, size=20)
+    drawLabel('zZzzZzz...', app.width/2, app.height/2-50, size=20)
+    drawLabel(f"Tomorrow's weather is...{app.weather}", 
+              app.width/2, app.height/2, size=20)
     app.undo.draw()
 
 def sleep_onMousePress(app, mouseX, mouseY):
     if app.undo.wasClicked(mouseX, mouseY):
-        app.frog.bedtime(app)
+        app.frog.bedtime()
+        updatePlants(app)
+        app.day += 1
         setActiveScreen('farm')
+
+def updateWeather(app):
+    num = random.randint(0,10)
+    if 0 <= num <= 3:
+        weather = 'rain'
+    else:
+        weather = 'sunny'
+    app.weather = weather
+
+def updatePlants(app):
+    for cell in app.plants:
+        if app.plants[cell] != 'dirt' and app.plants[cell].watered:
+            app.plants[cell].grow()
+            if app.weather == 'rain':
+                app.plants[cell].watered = True
+            else: app.plants[cell].watered = False
 
 #------------------------------------------EAT
 def eat_redrawAll(app):
@@ -570,9 +605,25 @@ def eat_onMousePress(app, mouseX, mouseY):
 def forest_redrawAll(app):
     drawMap(app)
     app.undo.draw()
+    app.frog.draw()
 
 def drawMap(app):
-    pass
+    for row in range(len(app.forestMap)):
+        for col in range(len(app.forestMap[0])):
+            if app.forestMap[row][col] <= 5:
+                fill='lightGreen'
+            else: fill='green'
+            drawForestCell(app, row, col, fill)
+
+def drawForestCell(app, row, col, fill):
+    cellLeft, cellTop = getForestCellLeftTop(app, row, col)
+    drawRect(cellLeft, cellTop, 50, 50, 
+             fill=fill, border=fill)
+
+def getForestCellLeftTop(app, row, col):
+    cellLeft = col * 50
+    cellTop = row * 50
+    return (cellLeft, cellTop)
 
 def forest_onMousePress(app, mouseX, mouseY):
     if app.undo.wasClicked(mouseX, mouseY):
