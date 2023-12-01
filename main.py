@@ -24,7 +24,7 @@ class Frog:
         self.width, self.height = getNewDims(self.standing, 6)
         self.standing = CMUImage(self.standing)
 
-        walkingLeftSpriteList = [] # (From lecture demo)
+        walkingLeftSpriteList = [] # (From lecture demo: https://piazza.com/class/lkq6ivek5cg1bc/post/2231)
         walkingRightSpriteList = []
         walkingPng = Image.open("images/walking.png")
         for frame in range(walkingPng.n_frames):
@@ -166,7 +166,11 @@ class Button:
                     'settings': Image.open('images/settings.png'),
                     'inventory': Image.open('images/inventory.png'),
                     'eat': Image.open('images/eat.png'),
-                    'sleep': Image.open('images/sleep.png')}
+                    'sleep': Image.open('images/sleep.png'),
+                    'buy': Image.open('images/buy.png'),
+                    'marketBuy': Image.open('images/marketbuy.png'),
+                    'marketSell': Image.open('images/marketsell.png'),
+                    'clear': Image.open('images/clear.png')}
     buttonPos = {'farm': (175, 200),
                  'about': (175,300),
                  'undo': (0,5),
@@ -175,7 +179,11 @@ class Button:
                  'settings': (874, 5),
                  'inventory': (804, 5),
                  'eat': (None, None),
-                 'sleep': (None, None)}
+                 'sleep': (None, None),
+                 'buy': (377, 300),
+                 'marketBuy': (20, 10),
+                 'marketSell': (100, 10),
+                 'clear': (200, 320)}
     def __init__(self, task):
         self.task = task
         self.image = Button.buttonImages[task]
@@ -214,7 +222,6 @@ class Item: #stuff in inventory
         self.num = 1
         self.image = Image.open('images/seed.png')
         self.width, self.height = getNewDims(self.image, 6) #100 x 100
-        # print(self.width, self.height)
 
     def __repr__(self):
         return f'{self.type}'
@@ -272,17 +279,6 @@ def onAppStart(app):
 # plants
     app.plants = dict() #positions of all plant cells and species
     app.dirtCells = set() #cellLeft, cellTop of all 'hoed' cells
-# buttons
-    app.play = Button('farm')
-    app.about = Button('about')
-    app.undo = LittleButton('undo')
-    app.startButtons = [app.play, app.about]
-    app.seeSettings = LittleButton('settings')
-    app.seeInventory = LittleButton('inventory')
-    app.shovel = LittleButton('shovel')
-    app.wateringCan = LittleButton('wateringCan')
-    app.farmButtons = [app.seeSettings, app.seeInventory, 
-                       app.shovel, app.wateringCan]
     
     app.shovelEquipped = app.wateringCanEquipped = False
     app.selectedItem = None
@@ -293,7 +289,24 @@ def onAppStart(app):
                      [None, None, None, None, None, None, None],
                      [None, None, None, None, None, None, None],
                      [None, None, None, None, None, None, None]] #start empty 7x7
-#images
+    
+    initBuyItemsList(app)
+    initImages(app)
+    initButtons(app)
+
+    app.weather = 'sunny'
+    app.forestScrollX = app.forestScrollY = 0
+    app.goodiesList = [Crop('strawberry'), Crop('blueberry')]
+
+def initBuyItemsList(app):
+    app.cost = 0
+    app.buyItemsList = [[Seed('tomato'), Seed('strawberry'), Seed('wheat')], 
+                        [Seed('blueberry'), Seed('carrot'), Seed('tomato')]] #2x3
+    for row in range(len(app.buyItemsList)):
+        for col in range(len(app.buyItemsList[0])):
+            app.buyItemsList[row][col].num = 0
+
+def initImages(app):
     app.startScreen = Image.open("images/home.png")
     app.startWidth, app.startHeight = getNewDims(app.startScreen, 2.5) 
     app.startScreen = CMUImage(app.startScreen)
@@ -302,6 +315,10 @@ def onAppStart(app):
     app.aboutWidth, app.aboutHeight = getNewDims(app.aboutScreen, 2.5)
     app.aboutScreen = CMUImage(app.aboutScreen)
 
+    app.coin = Image.open('images/money.png')
+    app.coinWidth, app.coinHeight = getNewDims(app.coin, 8)
+    app.coin = CMUImage(app.coin)
+
     app.rainSpriteList = []
     rainGif = Image.open('images/rain.png')
     for frame in range(rainGif.n_frames):
@@ -309,9 +326,22 @@ def onAppStart(app):
         image = rainGif.resize((rainGif.size[0]//2, rainGif.size[1]//2))
         app.rainSpriteList.append(CMUImage(image))
 
-    app.weather = 'sunny'
-    app.forestScrollX = app.forestScrollY = 0
-    app.goodiesList = [Crop('strawberry'), Crop('blueberry')]
+def initButtons(app):
+    app.play = Button('farm')
+    app.about = Button('about')
+    app.undo = LittleButton('undo')
+    app.startButtons = [app.play, app.about]
+    app.seeSettings = LittleButton('settings')
+    app.seeInventory = LittleButton('inventory')
+    app.marketSell = LittleButton('marketSell')
+    app.marketBuy = LittleButton('marketBuy')
+    app.shovel = LittleButton('shovel')
+    app.wateringCan = LittleButton('wateringCan')
+    app.farmButtons = [app.seeSettings, app.seeInventory, 
+                       app.shovel, app.wateringCan, app.marketSell,
+                       app.marketBuy]
+    app.buy = Button('buy')
+    app.clearCart = LittleButton('clear')
 
 #------------------------------------------START
 def start_redrawAll(app):
@@ -347,6 +377,8 @@ def farm_redrawAll(app):
     app.seeInventory.draw()
     app.wateringCan.draw()
     app.shovel.draw()
+    app.marketBuy.draw()
+    app.marketSell.draw()
 #tools
     drawTools(app)
 #weather
@@ -367,12 +399,10 @@ def farm_onMousePress(app, mouseX, mouseY):
         elif clicked.task == 'wateringCan':
             app.wateringCanEquipped = not app.wateringCanEquipped
             app.toolX, app.toolY = mouseX, mouseY
-        elif clicked.task == 'settings':
-            setActiveScreen('settings')
-        elif clicked.task == 'inventory':
+        else:
             app.highlightedCell = None
             app.selectedItem = None
-            setActiveScreen('inventory')
+            setActiveScreen(clicked.task)
     elif app.frog.wasClicked(mouseX, mouseY):
         app.frog.showMenu = not app.frog.showMenu
     if app.frog.showMenu:
@@ -497,7 +527,7 @@ def scroll(app, direction):
     #         app.dirtCells.add((newCellLeft, cellTop))
     #         app.dirtCells.remove((cellLeft, cellTop))
 
-#------------------------------------------Drawing a Board (CS Academy)
+#------------------------------------------Drawing a Board (CS Academy: https://academy.cs.cmu.edu/notes/5504)
 def drawBoard(app):
     for row in range(app.rows):
         for col in range(app.cols):
@@ -557,7 +587,7 @@ def inventory_redrawAll(app):
     drawRect(40, 40, app.width-80, app.height-80, fill='white')
     drawLabel("Your Stuff:", app.width/2, 20, fill='white', size=20)
     app.undo.draw()
-    app.seeInventory.draw()
+    # app.seeInventory.draw()
     for row in range(len(app.inventory)):
         for col in range(len(app.inventory[0])):
             drawInventoryCell(app, row, col)
@@ -583,8 +613,6 @@ def inventory_onMousePress(app, mouseX, mouseY):
         app.selectedItem, row, col = selected
     elif app.undo.wasClicked(mouseX, mouseY):
         setActiveScreen('farm')
-    elif app.seeInventory.wasClicked(mouseX, mouseY):
-        setActiveScreen('marketSell')
 
 def inventory_onMouseMove(app, mouseX, mouseY):
     app.highlightedCell = (getHoveringOverCell(app, mouseX, mouseY))
@@ -735,8 +763,6 @@ def forest_onKeyRelease(app, key):
 def forest_onStep(app):
     if app.frog.isMoving and frogNotInGreen(app):
         app.frog.takeStep(app)
-
-
         # if app.frog.x >= app.width - app.margin:
         #     # scrollForest(app, 'left')
         #     app.frog.atRightEdge = True
@@ -772,12 +798,12 @@ def getNextCell(app, x, y):
         dx, dy = 1, 0
     return currRow+dx, currCol+dy
 
-
 #------------------------------------------MARKET
 def marketSell_redrawAll(app):
     drawRect(0, 0, app.width, app.height, fill='gold')
     drawRect(40, 40, app.width-80, app.height-80, fill='white')
     app.undo.draw()
+    drawImage(app.coin, app.width-300, 10, width=app.coinWidth, height=app.coinHeight)
     drawLabel(f'You have {app.money} frog coins!', app.width-200, 20, align='left',
               size=16)
     for row in range(len(app.inventory)):
@@ -786,7 +812,7 @@ def marketSell_redrawAll(app):
                 
 def marketSell_onMousePress(app, mouseX, mouseY):
     if app.undo.wasClicked(mouseX, mouseY):
-        setActiveScreen('inventory')
+        setActiveScreen('farm')
     else:
         app.selectedItem = None
         selected = getSelectedItem(app, mouseX, mouseY)
@@ -803,19 +829,75 @@ def marketSell_onMousePress(app, mouseX, mouseY):
 def marketSell_onMouseMove(app, mouseX, mouseY):
     app.highlightedCell = (getHoveringOverCell(app, mouseX, mouseY))
 
-        # for row in range(len(app.inventory)):
-        #     for col in range(len(app.inventory[0])):
-        #         if (40 + 200*col <= mouseX <= 140 + 200*col and
-        #         100+20*row <= mouseY <= 140+20*row):
-        #             if app.inventory[row][col] != None:
-        #                 if app.inventory[row][col].num == 1:
-        #                     app.inventory[row][col] = None
-        #                 else:
-        #                     app.inventory[row][col].num -= 1
-        #                 app.money += 10
-
+#------------------------------------------BUY
 def marketBuy_redrawAll(app):
-    pass                
+    drawRect(0, 0, app.width, app.height, fill='gold')
+    drawRect(40, 40, app.width-80, app.height-80, fill='white')
+    drawLabel("Click to buy!", app.width/2, 20, fill='white', size=20)
+    drawLabel(f'You have {app.money} frog coins', app.width-200, 20, align='left',
+              size=16)
+    drawLabel(f'Total Cost = {app.cost}', 200, 300, size=16, bold=True, align='left')
+    if app.money-app.cost < 0:
+        drawLabel("You can't afford this :(", app.width/2, app.height-20, size=20)
+    else: app.buy.draw()
+    app.undo.draw()
+    app.clearCart.draw()
+    for row in range(len(app.buyItemsList)):
+        for col in range(len(app.buyItemsList[0])):
+            drawBuyCell(app, row, col)
+
+def drawBuyCell(app, row, col):
+    cellLeft, cellTop = getBuyCellLeftTop(app, row, col)
+    if (row, col) == app.highlightedCell:
+        drawRect(cellLeft, cellTop, 100, 75, fill='green',
+                 align='left', border=None, opacity=40)
+    app.buyItemsList[row][col].draw(app, cellLeft, cellTop)
+    drawRect(cellLeft, cellTop, 100, 75, fill=None, align='left')
+
+def getBuyCellLeftTop(app, row, col):
+    cellLeft = 325 + col * 100
+    cellTop = 100 + row * 100
+    return cellLeft, cellTop
+
+def marketBuy_onMousePress(app, mouseX, mouseY):
+    if app.undo.wasClicked(mouseX, mouseY):
+        initBuyItemsList(app)
+        setActiveScreen('farm')
+    elif app.clearCart.wasClicked(mouseX, mouseY):
+        initBuyItemsList(app)
+    elif app.buy.wasClicked(mouseX, mouseY) and not (app.money - app.cost < 0):
+        app.money -= app.cost
+        for row in range(len(app.buyItemsList)):
+            for col in range(len(app.buyItemsList[0])):
+                item = app.buyItemsList[row][col]
+                if item.num > 0:
+                    addToInventory(app, item)
+        initBuyItemsList(app)
+    elif app.money > 0: 
+        selected = getSelectedSeed(app, mouseX, mouseY)
+        if selected != None:
+            item, row, col = getSelectedSeed(app, mouseX, mouseY)
+            app.buyItemsList[row][col].num += 1
+            app.cost += 10
+
+def getSelectedSeed(app, x, y):
+    for row in range(len(app.buyItemsList)):
+        for col in range(len(app.buyItemsList[0])):
+            left, top = getBuyCellLeftTop(app, row, col)
+            if (left <= x <= left + 100 and
+                top <= y <= top + 100):
+                return app.buyItemsList[row][col], row, col
+
+def marketBuy_onMouseMove(app, mouseX, mouseY):
+    app.highlightedCell = (getCell(app, mouseX, mouseY))
+
+def getCell(app, x, y):
+    for row in range(len(app.buyItemsList)):
+        for col in range(len(app.buyItemsList[0])):
+            left, top = getBuyCellLeftTop(app, row, col)
+            if (left <= x <= left + 100 and
+                top <= y <= top + 100):
+                return row, col
 
 
 def main():
