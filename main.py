@@ -142,20 +142,20 @@ class Plant:
         self.days += 1
         if self.days == Plant.harvestTimes[self.species]:
             self.stage = 'ready!'
+        if self.days == 4: # spend 2 days as an adolescent
+            self.image = Plant.plantImages[f'{self.species}-1']
         elif self.days == 1:
             self.image = Plant.saplingImage
         elif self.days == 2:
             self.image = Plant.plantImages[f'{self.species}-0']
-        elif self.days == 4: # spend 2 days as an adolescent
-            self.image = Plant.plantImages[f'{self.species}-1']
     
-    def draw(self,app, x, y):
+    def draw(self, app, x, y):
         drawImage(self.image, x, y, align='center',
                   width=self.width, height=self.height)
         if not self.watered and self.stage != 'ready!':
             drawLabel("I'm thirsty!", x, y+20, size=16, fill='lightBlue')
         elif self.stage == 'ready!':
-            drawLabel("Harvest me!", x, y+20, size=16, fill='yellow')
+            drawLabel("Harvest me!", x, y-50, size=16, fill='yellow')
             
 class Button:
     buttonImages = {'farm': Image.open("images/play.png"),
@@ -286,9 +286,13 @@ def onAppStart(app):
     
     app.shovelEquipped = app.wateringCanEquipped = False
     app.selectedItem = None
-    app.inventory = [[Crop('strawberry'), Crop('tomato'), Crop('blueberry'), None, None], 
-                     [Seed('wheat'), None, Seed('tomato'), None, None],
-                     [None, None, None, None, None]] #start empty 5x5
+    app.inventory = [[Crop('strawberry'), Crop('tomato'), Crop('blueberry'), None, None, None, None], 
+                     [Seed('wheat'), None, Seed('tomato'), None, None, None, None],
+                     [None, None, None, None, None, None, None],
+                     [None, None, None, None, None, None, None],
+                     [None, None, None, None, None, None, None],
+                     [None, None, None, None, None, None, None],
+                     [None, None, None, None, None, None, None]] #start empty 7x7
 #images
     app.startScreen = Image.open("images/home.png")
     app.startWidth, app.startHeight = getNewDims(app.startScreen, 2.5) 
@@ -429,15 +433,16 @@ def plantSeed(app, mouseX, mouseY):
     x, y  = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
     if ((x, y) in app.plants and app.frog.nearPlot(app, cellLeft, cellTop)):
         if app.plants[(x, y)] == 'dirt':
+            app.highlightedCell = None
             setActiveScreen('inventory')
             if type(app.selectedItem) == Seed:
                 seed = app.selectedItem
                 app.plants[(x, y)] = Plant(seed.type)
                 if app.weather == 'rain':
                     app.plants[(x,y)].watered = True
-        elif app.plants[(x, y)].stage == 'ready':
-            crop = Crop(app.plants[(x, y)].type)
-            app.inventory.append(crop)
+        elif app.plants[(x, y)].stage == 'ready!':
+            crop = Crop(app.plants[(x, y)].species)
+            addToInventory(app, crop)
             app.plants.pop((x, y))
     
 def water(app, mouseX, mouseY):
@@ -770,27 +775,44 @@ def getNextCell(app, x, y):
 
 #------------------------------------------MARKET
 def marketSell_redrawAll(app):
-    drawLabel(f'You have {app.money} frog coins!', 20, 20, align='left',
+    drawRect(0, 0, app.width, app.height, fill='gold')
+    drawRect(40, 40, app.width-80, app.height-80, fill='white')
+    app.undo.draw()
+    drawLabel(f'You have {app.money} frog coins!', app.width-200, 20, align='left',
               size=16)
     for row in range(len(app.inventory)):
         for col in range(len(app.inventory[0])):
-            item = app.inventory[row][col]
-            if item != None and type(item) == Crop:
-                app.inventory[row][col].draw(app, 40+200*col, 100+20*row)
-                # drawLabel(f'{item.type} x{item.num}', 40 + 200*col, 
-                #           40+20*row, align='left', size=20)
+            drawInventoryCell(app, row, col)
                 
 def marketSell_onMousePress(app, mouseX, mouseY):
-    for row in range(len(app.inventory)):
-        for col in range(len(app.inventory[0])):
-            if (40 + 200*col <= mouseX <= 140 + 200*col and
-               100+20*row <= mouseY <= 140+20*row):
-                if app.inventory[row][col] != None:
-                    if app.inventory[row][col].num == 1:
-                        app.inventory[row][col] = None
-                    else:
-                        app.inventory[row][col].num -= 1
-                    app.money += 10
+    if app.undo.wasClicked(mouseX, mouseY):
+        setActiveScreen('inventory')
+    else:
+        app.selectedItem = None
+        selected = getSelectedItem(app, mouseX, mouseY)
+        if selected != None:
+            selected, row, col = getSelectedItem(app, mouseX, mouseY)
+            if (app.inventory[row][col] != None and 
+                type(app.inventory[row][col]) == Crop):
+                if app.inventory[row][col].num == 1:
+                    app.inventory[row][col] = None
+                else:
+                    app.inventory[row][col].num -= 1
+                app.money += 10
+
+def marketSell_onMouseMove(app, mouseX, mouseY):
+    app.highlightedCell = (getHoveringOverCell(app, mouseX, mouseY))
+
+        # for row in range(len(app.inventory)):
+        #     for col in range(len(app.inventory[0])):
+        #         if (40 + 200*col <= mouseX <= 140 + 200*col and
+        #         100+20*row <= mouseY <= 140+20*row):
+        #             if app.inventory[row][col] != None:
+        #                 if app.inventory[row][col].num == 1:
+        #                     app.inventory[row][col] = None
+        #                 else:
+        #                     app.inventory[row][col].num -= 1
+        #                 app.money += 10
 
 def marketBuy_redrawAll(app):
     pass                
