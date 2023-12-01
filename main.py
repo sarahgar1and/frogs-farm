@@ -88,7 +88,7 @@ class Frog:
                 button.draw()
 
     def nearPlot(self, app, cellLeft, cellTop):
-        if (cellLeft-50 <= self.x <= cellLeft+app.cellWidth+20 and
+        if (cellLeft-50 <= self.x <= cellLeft+app.cellWidth+50 and
         cellTop-50 <= self.y <= cellTop+app.cellHeight+20):
             return True
         return False
@@ -466,15 +466,15 @@ def plantSeed(app, mouseX, mouseY):
             app.highlightedCell = None
             setActiveScreen('inventory')
             if type(app.selectedItem) == Seed:
-                seed = app.selectedItem
-                app.plants[(x, y)] = Plant(seed.type)
+                app.plants[(x, y)] = Plant(app.selectedItem.type)
+                removeFromInventory(app, app.selectedItem)
                 if app.weather == 'rain':
                     app.plants[(x,y)].watered = True
         elif app.plants[(x, y)].stage == 'ready!':
             crop = Crop(app.plants[(x, y)].species)
             addToInventory(app, crop)
             app.plants.pop((x, y))
-    
+  
 def water(app, mouseX, mouseY):
     cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
     x, y  = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
@@ -643,6 +643,16 @@ def addToInventory(app, item):
     row, col = getNextEmptySlot(app)
     app.inventory[row][col] = item
 
+def removeFromInventory(app, item):
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            if item == app.inventory[row][col]:
+                if app.inventory[row][col].num == 1:
+                    app.inventory[row][col] = None
+                else: app.inventory[row][col].numm -=1
+                return
+
+
 def getNextEmptySlot(app):
     for row in range(len(app.inventory)):
         for col in range(len(app.inventory[0])):
@@ -702,7 +712,9 @@ def eat_onMousePress(app, mouseX, mouseY):
     if selected != None:
         selected, row, col = getSelectedItem(app, mouseX, mouseY)
         if type(selected) == Crop:
-            app.inventory[row][col] = None
+            if app.inventory[row][col].num == 1:
+                app.inventory[row][col] = None
+            else: app.inventory[row][col].num -=1
             app.frog.eat()
     elif app.undo.wasClicked(mouseX, mouseY):
         setActiveScreen('farm')
@@ -803,9 +815,10 @@ def marketSell_redrawAll(app):
     drawRect(0, 0, app.width, app.height, fill='gold')
     drawRect(40, 40, app.width-80, app.height-80, fill='white')
     app.undo.draw()
-    drawImage(app.coin, app.width-300, 10, width=app.coinWidth, height=app.coinHeight)
-    drawLabel(f'You have {app.money} frog coins!', app.width-200, 20, align='left',
+    drawImage(app.coin, app.width-280, 5, width=app.coinWidth, height=app.coinHeight)
+    drawLabel(f'You have {app.money} frog coins!', app.width-200, 30, align='left',
               size=16)
+    drawLabel('Click to sell!', app.width/2, 20, size=20)
     for row in range(len(app.inventory)):
         for col in range(len(app.inventory[0])):
             drawInventoryCell(app, row, col)
@@ -833,8 +846,9 @@ def marketSell_onMouseMove(app, mouseX, mouseY):
 def marketBuy_redrawAll(app):
     drawRect(0, 0, app.width, app.height, fill='gold')
     drawRect(40, 40, app.width-80, app.height-80, fill='white')
-    drawLabel("Click to buy!", app.width/2, 20, fill='white', size=20)
-    drawLabel(f'You have {app.money} frog coins', app.width-200, 20, align='left',
+    drawLabel("Click to buy!", app.width/2, 20, size=20)
+    drawImage(app.coin, app.width-280, 5, width=app.coinWidth, height=app.coinHeight)
+    drawLabel(f'You have {app.money} frog coins!', app.width-200, 30, align='left',
               size=16)
     drawLabel(f'Total Cost = {app.cost}', 200, 300, size=16, bold=True, align='left')
     if app.money-app.cost < 0:
