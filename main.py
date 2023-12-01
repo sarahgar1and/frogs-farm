@@ -286,8 +286,9 @@ def onAppStart(app):
     
     app.shovelEquipped = app.wateringCanEquipped = False
     app.selectedItem = None
-    app.inventory = [[Crop('strawberry'), Crop('tomato'), Crop('blueberry')], 
-                     [Seed('wheat'), None, Seed('tomato')]] #start empty
+    app.inventory = [[Crop('strawberry'), Crop('tomato'), Crop('blueberry'), None, None], 
+                     [Seed('wheat'), None, Seed('tomato'), None, None],
+                     [None, None, None, None, None]] #start empty 5x5
 #images
     app.startScreen = Image.open("images/home.png")
     app.startWidth, app.startHeight = getNewDims(app.startScreen, 2.5) 
@@ -365,6 +366,8 @@ def farm_onMousePress(app, mouseX, mouseY):
         elif clicked.task == 'settings':
             setActiveScreen('settings')
         elif clicked.task == 'inventory':
+            app.highlightedCell = None
+            app.selectedItem = None
             setActiveScreen('inventory')
     elif app.frog.wasClicked(mouseX, mouseY):
         app.frog.showMenu = not app.frog.showMenu
@@ -374,6 +377,9 @@ def farm_onMousePress(app, mouseX, mouseY):
                 app.frog.showMenu = False
                 if button.task == 'sleep':
                     updateWeather(app)
+                elif button.task == 'eat':
+                    app.selectedItem = None
+                    app.highlightedCell = None
                 setActiveScreen(button.task)
     #digging with shovel
     elif app.shovelEquipped and not app.frog.doneWorking:
@@ -553,6 +559,9 @@ def inventory_redrawAll(app):
 
 def drawInventoryCell(app, row, col):
     cellLeft, cellTop = getInventoryCellLeftTop(app, row, col)
+    if (row, col) == app.highlightedCell:
+        drawRect(cellLeft, cellTop, 100, 75, fill='green',
+                 align='left', border=None, opacity=40)
     if app.inventory[row][col] != None:
         app.inventory[row][col].draw(app, cellLeft, cellTop)
         drawRect(cellLeft, cellTop, 100, 75, fill=None, align='left', 
@@ -571,7 +580,18 @@ def inventory_onMousePress(app, mouseX, mouseY):
         setActiveScreen('farm')
     elif app.seeInventory.wasClicked(mouseX, mouseY):
         setActiveScreen('marketSell')
-    
+
+def inventory_onMouseMove(app, mouseX, mouseY):
+    app.highlightedCell = (getHoveringOverCell(app, mouseX, mouseY))
+
+def getHoveringOverCell(app, x, y):
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            left, top = getInventoryCellLeftTop(app, row, col)
+            if (left <= x <= left + 100 and
+                top <= y <= top + 100):
+                return row, col
+
 def getSelectedItem(app, x, y):
     for row in range(len(app.inventory)):
         for col in range(len(app.inventory[0])):
@@ -579,6 +599,22 @@ def getSelectedItem(app, x, y):
             if (left <= x <= left + 100 and
                 top <= y <= top + 100):
                 return app.inventory[row][col], row, col
+
+def addToInventory(app, item):
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            if item == app.inventory[row][col]:
+                app.inventory[row][col].num += 1
+                return
+    # otherwise, add new
+    row, col = getNextEmptySlot(app)
+    app.inventory[row][col] = item
+
+def getNextEmptySlot(app):
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            if app.inventory[row][col] == None:
+                return row, col
 
 #------------------------------------------SLEEP
 def sleep_redrawAll(app):
@@ -628,14 +664,18 @@ def eat_redrawAll(app):
             drawInventoryCell(app, row, col)
 
 def eat_onMousePress(app, mouseX, mouseY):
+    app.selectedItem = None
     selected = getSelectedItem(app, mouseX, mouseY)
     if selected != None:
         selected, row, col = getSelectedItem(app, mouseX, mouseY)
         if type(selected) == Crop:
-            app.inventory[row].pop(col)
+            app.inventory[row][col] = None
             app.frog.eat()
     elif app.undo.wasClicked(mouseX, mouseY):
         setActiveScreen('farm')
+
+def eat_onMouseMove(app, mouseX, mouseY):
+    app.highlightedCell = (getHoveringOverCell(app, mouseX, mouseY))
 
 #------------------------------------------SCAVANGING
 def forest_redrawAll(app):
@@ -646,24 +686,26 @@ def forest_redrawAll(app):
 def drawMap(app):
     for row in range(len(app.forestMap)):
         for col in range(len(app.forestMap[0])):
-            if app.forestMap[row][col] <= 10:
+            if 0 <= app.forestMap[row][col] <= 10:
                 fill='lightGreen'
+            elif app.forestMap[row][col] == -1:
+                fill='brown'
             else: fill='green'
             drawForestCell(app, row, col, fill)
 
 def drawForestCell(app, row, col, fill):
     cellLeft, cellTop = getForestCellLeftTop(app, row, col)
-    drawRect(cellLeft, cellTop, 50, 50, 
-             fill=fill, border=fill)
+    drawRect(cellLeft, cellTop, 100, 100, 
+             fill=fill, border=fill, align='left')
     if app.forestMap[row][col] == app.randomValue:
         #this is the random value used to initialize the map board
         #so it shouldn't appear too frequently
-        # goodieIndex = random.randint(0, len(app.goodiesList)-1)
         app.goodie.draw(app, cellLeft, cellTop)
+        drawRect(cellLeft, cellTop+75, 100, 75, fill=fill, align='left')
 
 def getForestCellLeftTop(app, row, col):
-    cellLeft = app.forestScrollX + col * 50
-    cellTop = app.forestScrollY + row * 50
+    cellLeft = app.forestScrollX + col * 100
+    cellTop = app.forestScrollY + row * 100
     return (cellLeft, cellTop)
 
 def forest_onMousePress(app, mouseX, mouseY):
@@ -671,6 +713,11 @@ def forest_onMousePress(app, mouseX, mouseY):
         app.frog.x, app.frog.y = app.width/2, app.height/2
         app.frog.isMoving = False
         setActiveScreen('farm')
+    else:
+        row, col = getCurrCell(app, mouseX, mouseY)
+        if app.forestMap[row][col] == app.randomValue:
+            addToInventory(app, app.goodie)
+            app.forestMap[row][col] = -1
 
 def forest_onKeyPress(app, key):
     if key == 'left' or key == 'right' or key =='up' or key == 'down':
@@ -681,21 +728,50 @@ def forest_onKeyRelease(app, key):
     app.frog.isMoving = False
 
 def forest_onStep(app):
-    if app.frog.isMoving:
+    if app.frog.isMoving and frogNotInGreen(app):
         app.frog.takeStep(app)
-        if app.frog.x >= app.width - app.margin:
-            # scroll(app, 'left')
-            app.frog.atRightEdge = True
-        else: app.frog.atRightEdge = False
-        if app.frog.x <= app.margin:
-            # scroll(app, 'right')
-            app.frog.atLeftEdge = True
-        else: app.frog.atLeftEdge = False
+
+
+        # if app.frog.x >= app.width - app.margin:
+        #     # scrollForest(app, 'left')
+        #     app.frog.atRightEdge = True
+        # else: app.frog.atRightEdge = False
+        # if app.frog.x <= app.margin:
+        #     # scrollForest(app, 'right')
+        #     app.frog.atLeftEdge = True
+        # else: app.frog.atLeftEdge = False
     app.frog.counter +=1
+
+def frogNotInGreen(app):
+    row, col = getNextCell(app, app.frog.x, app.frog.y)
+    if app.forestMap[row][col] <= 10:
+        return True
+    else: return False
+
+def getCurrCell(app, x, y):
+    for row in range(len(app.forestMap)):
+        for col in range(len(app.forestMap[0])):
+            cellLeft, cellTop = getForestCellLeftTop(app, row, col)
+            if (cellLeft <= x <= cellLeft + 100 and 
+                cellTop <= y <= cellTop + 100):
+                    return row, col
+def getNextCell(app, x, y):
+    currRow, currCol = getCurrCell(app, x, y)
+    if app.frog.direction == 'up':
+        dx, dy = 0, -1
+    elif app.frog.direction == 'down':
+        dx, dy = 0, 1
+    elif app.frog.direction == 'left':
+        dx, dy = -1, 0
+    elif app.frog.direction == 'right':
+        dx, dy = 1, 0
+    return currRow+dx, currCol+dy
+
 
 #------------------------------------------MARKET
 def marketSell_redrawAll(app):
-    drawLabel(f'You have {app.money} frog coins!')
+    drawLabel(f'You have {app.money} frog coins!', 20, 20, align='left',
+              size=16)
     for row in range(len(app.inventory)):
         for col in range(len(app.inventory[0])):
             item = app.inventory[row][col]
@@ -711,7 +787,7 @@ def marketSell_onMousePress(app, mouseX, mouseY):
                100+20*row <= mouseY <= 140+20*row):
                 if app.inventory[row][col] != None:
                     if app.inventory[row][col].num == 1:
-                        app.inventory[row].pop(col)
+                        app.inventory[row][col] = None
                     else:
                         app.inventory[row][col].num -= 1
                     app.money += 10
