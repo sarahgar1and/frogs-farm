@@ -128,11 +128,12 @@ class Plant:
                    'carrot-0': CMUImage(Image.open('images/baby_leaves.png')),
                    'lettuce-0': CMUImage(Image.open('images/baby_leaves.png'))}
     saplingImage = CMUImage(Image.open("images/sapling.png"))
+    seedImage = Image.open("images/seed.png")
     def __init__(self, species):
         self.species = species
     # 4 stages: seed, baby, adolescent, adult  
         self.stage = 'seed' 
-        self.image = Image.open("images/seed.png")
+        self.image = Plant.seedImage
         self.width, self.height = getNewDims(self.image, 5)
         self.image = CMUImage(self.image)
     # harvestable once daysTillHarvest == harvestTime
@@ -301,6 +302,8 @@ def onAppStart(app):
     app.forestScrollX = app.forestScrollY = 0
     app.goodiesList = [Crop('strawberry'), Crop('blueberry')]
 
+    loadStartFile(app)
+
 def initBuyItemsList(app):
     app.cost = 0
     app.buyItemsList = [[Seed('tomato'), Seed('strawberry'), Seed('wheat')], 
@@ -328,6 +331,10 @@ def initImages(app):
         rainGif.seek(frame)
         image = rainGif.resize((rainGif.size[0]//2, rainGif.size[1]//2))
         app.rainSpriteList.append(CMUImage(image))
+    
+    app.seedImage = Image.open("images/seed.png")
+    app.seedImageWidth, app.seedImageHeight = getNewDims(app.seedImage, 5)
+    app.seedImage = CMUImage(app.seedImage)
 
 def initButtons(app):
     app.play = Button('farm')
@@ -462,7 +469,7 @@ def dig(app, mouseX, mouseY):
                     if len(app.dirtCells) % 3 == 0:
                         app.frog.hunger -= 1
 
-def plantSeed(app, mouseX, mouseY):
+def plantSeed(app, mouseX, mouseY): #plant or harvest
     cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
     x, y  = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
     if ((x, y) in app.plants and app.frog.nearPlot(app, cellLeft, cellTop)):
@@ -477,6 +484,7 @@ def plantSeed(app, mouseX, mouseY):
             crop = Crop(app.plants[(x, y)].species)
             addToInventory(app, crop)
             app.plants.pop((x, y))
+            app.dirtCells.remove((cellLeft, cellTop))
   
 def water(app, mouseX, mouseY):
     cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
@@ -488,7 +496,7 @@ def water(app, mouseX, mouseY):
         app.plants[(x, y)].watered = True
 
 def farm_onMouseMove(app, mouseX, mouseY):
-    if app.shovelEquipped or app.wateringCanEquipped:
+    if app.shovelEquipped or app.wateringCanEquipped or app.selectedItem != None:
         app.toolX, app.toolY = mouseX, mouseY
 
 def farm_onKeyPress(app, key):
@@ -530,7 +538,7 @@ def scroll(app, direction):
     #         app.dirtCells.add((newCellLeft, cellTop))
     #         app.dirtCells.remove((cellLeft, cellTop))
 
-#------------------------------------------Drawing a Board (CS Academy: https://academy.cs.cmu.edu/notes/5504)
+#drawing a board (CS Academy: https://academy.cs.cmu.edu/notes/5504)
 def drawBoard(app):
     for row in range(app.rows):
         for col in range(app.cols):
@@ -568,6 +576,9 @@ def drawTools(app):
                   height=app.wateringCan.height)
         drawRect(app.wateringCan.x, app.wateringCan.y, app.wateringCan.width, 
                  app.wateringCan.height, fill=None, border='green')
+    elif app.selectedItem != None and type(app.selectedItem) == Seed:
+        drawImage(app.seedImage, app.toolX, app.toolY, align='center', 
+                width=app.seedImageWidth, height=app.seedImageHeight)
 
 def drawField(app):
     for cell in app.plants:
@@ -589,7 +600,6 @@ def settings_redrawAll(app):
 def settings_onMousePress(app, mouseX, mouseY):
     if app.save.wasClicked(mouseX, mouseY):
         saveData(app)
-        readStartFile(app)
     elif app.undo.wasClicked(mouseX, mouseY):
         setActiveScreen('farm')
 

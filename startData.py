@@ -1,4 +1,4 @@
-def readStartFile(app):
+def loadStartFile(app):
     i = 1
     #1 day
     #2 frog hunger
@@ -22,16 +22,16 @@ def readStartFile(app):
             app.frog.sleep = int(line)
         elif i == 4:
             app.money = int(line)
-        elif i == 5:
-            editInventory(app, line)
-        elif i == 6:
-            editInventoryNums(app, line)
-        elif i == 7:
-            editDirtCells(app, line)
-        elif i == 8:
-            plantsString = line
-        elif i == 9:
-            
+        # elif i == 5:
+        #     editInventory(app, line)
+        # elif i == 6:
+        #     editInventoryNums(app, line)
+        # elif i == 7:
+        #     editDirtCells(app, line)
+        # elif i == 8:
+        #     plantsString = line
+        # elif i == 9:
+
         i +=1
 
          
