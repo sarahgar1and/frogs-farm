@@ -1,5 +1,6 @@
 from cmu_graphics import *
 from mapGeneration import *
+from startData import *
 from PIL import Image
 import random
 
@@ -170,7 +171,8 @@ class Button:
                     'buy': Image.open('images/buy.png'),
                     'marketBuy': Image.open('images/marketbuy.png'),
                     'marketSell': Image.open('images/marketsell.png'),
-                    'clear': Image.open('images/clear.png')}
+                    'clear': Image.open('images/clear.png'),
+                    'save': Image.open('images/save.png')}
     buttonPos = {'farm': (175, 200),
                  'about': (175,300),
                  'undo': (0,5),
@@ -183,7 +185,8 @@ class Button:
                  'buy': (377, 300),
                  'marketBuy': (20, 10),
                  'marketSell': (100, 10),
-                 'clear': (200, 320)}
+                 'clear': (200, 320),
+                 'save': (360, 200)}
     def __init__(self, task):
         self.task = task
         self.image = Button.buttonImages[task]
@@ -282,8 +285,8 @@ def onAppStart(app):
     
     app.shovelEquipped = app.wateringCanEquipped = False
     app.selectedItem = None
-    app.inventory = [[Crop('strawberry'), Crop('tomato'), Crop('blueberry'), None, None, None, None], 
-                     [Seed('wheat'), None, Seed('tomato'), None, None, None, None],
+    app.inventory = [[None, None, None, None, None, None, None], 
+                     [None, None, None, None, None, None, None],
                      [None, None, None, None, None, None, None],
                      [None, None, None, None, None, None, None],
                      [None, None, None, None, None, None, None],
@@ -301,7 +304,7 @@ def onAppStart(app):
 def initBuyItemsList(app):
     app.cost = 0
     app.buyItemsList = [[Seed('tomato'), Seed('strawberry'), Seed('wheat')], 
-                        [Seed('blueberry'), Seed('carrot'), Seed('tomato')]] #2x3
+                        [Seed('blueberry'), Seed('carrot'), Seed('lettuce')]] #2x3
     for row in range(len(app.buyItemsList)):
         for col in range(len(app.buyItemsList[0])):
             app.buyItemsList[row][col].num = 0
@@ -342,6 +345,7 @@ def initButtons(app):
                        app.marketBuy]
     app.buy = Button('buy')
     app.clearCart = LittleButton('clear')
+    app.save = Button('save')
 
 #------------------------------------------START
 def start_redrawAll(app):
@@ -463,11 +467,10 @@ def plantSeed(app, mouseX, mouseY):
     x, y  = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
     if ((x, y) in app.plants and app.frog.nearPlot(app, cellLeft, cellTop)):
         if app.plants[(x, y)] == 'dirt':
-            app.highlightedCell = None
-            setActiveScreen('inventory')
             if type(app.selectedItem) == Seed:
                 app.plants[(x, y)] = Plant(app.selectedItem.type)
                 removeFromInventory(app, app.selectedItem)
+                app.selectedItem = None
                 if app.weather == 'rain':
                     app.plants[(x,y)].watered = True
         elif app.plants[(x, y)].stage == 'ready!':
@@ -579,7 +582,16 @@ def drawField(app):
 
 #------------------------------------------Settings
 def settings_redrawAll(app):
-    pass
+    drawRect(0, 0, app.width, app.height, fill='lightGreen', border=None)
+    app.undo.draw()
+    app.save.draw()
+
+def settings_onMousePress(app, mouseX, mouseY):
+    if app.save.wasClicked(mouseX, mouseY):
+        saveData(app)
+        readStartFile(app)
+    elif app.undo.wasClicked(mouseX, mouseY):
+        setActiveScreen('farm')
 
 #------------------------------------------Inventory
 def inventory_redrawAll(app):
@@ -649,9 +661,8 @@ def removeFromInventory(app, item):
             if item == app.inventory[row][col]:
                 if app.inventory[row][col].num == 1:
                     app.inventory[row][col] = None
-                else: app.inventory[row][col].numm -=1
+                else: app.inventory[row][col].num -=1
                 return
-
 
 def getNextEmptySlot(app):
     for row in range(len(app.inventory)):
@@ -773,21 +784,31 @@ def forest_onKeyRelease(app, key):
     app.frog.isMoving = False
 
 def forest_onStep(app):
-    if app.frog.isMoving and frogNotInGreen(app):
+    row, col = getCurrCell(app, app.frog.x, app.frog.y)
+    if app.frog.isMoving and app.forestMap[row][col] <= 10:
+    # frogNotInGreen(app):
         app.frog.takeStep(app)
-        # if app.frog.x >= app.width - app.margin:
-        #     # scrollForest(app, 'left')
-        #     app.frog.atRightEdge = True
-        # else: app.frog.atRightEdge = False
-        # if app.frog.x <= app.margin:
-        #     # scrollForest(app, 'right')
-        #     app.frog.atLeftEdge = True
-        # else: app.frog.atLeftEdge = False
+        if app.frog.x >= app.width - app.margin:
+            scrollForest(app, 'left')
+            app.frog.atRightEdge = True
+        else: app.frog.atRightEdge = False
+        if app.frog.x <= app.margin:
+            scrollForest(app, 'right')
+            app.frog.atLeftEdge = True
+        else: app.frog.atLeftEdge = False
     app.frog.counter +=1
 
+def scrollForest(app, direction):
+    if direction == 'left':
+        app.forestScrollX -= 10
+    elif direction == 'right':
+        app.forestScrollX += 10
+
 def frogNotInGreen(app):
-    row, col = getNextCell(app, app.frog.x, app.frog.y)
-    if app.forestMap[row][col] <= 10:
+    row, col = getNextCell(app, app.frog.x-68, app.frog.y-68)
+    if (0 <= row < len(app.forestMap) and 
+    0 <= col < len(app.forestMap[0]) and 
+    app.forestMap[row][col] <= 10):
         return True
     else: return False
 
@@ -798,6 +819,7 @@ def getCurrCell(app, x, y):
             if (cellLeft <= x <= cellLeft + 100 and 
                 cellTop <= y <= cellTop + 100):
                     return row, col
+
 def getNextCell(app, x, y):
     currRow, currCol = getCurrCell(app, x, y)
     if app.frog.direction == 'up':
@@ -808,7 +830,7 @@ def getNextCell(app, x, y):
         dx, dy = -1, 0
     elif app.frog.direction == 'right':
         dx, dy = 1, 0
-    return currRow+dx, currCol+dy
+    return currRow+dy, currCol+dx
 
 #------------------------------------------MARKET
 def marketSell_redrawAll(app):
