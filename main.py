@@ -6,10 +6,6 @@ from cheatKeys import *
 from PIL import Image
 import random
 
-#------------------------------------------
-def getNewDims(image, factor):
-    width,height = image.width, image.height
-    return width/factor, height/factor 
 
 def onAppStart(app):
     app.width = 944
