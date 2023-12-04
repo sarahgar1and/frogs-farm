@@ -1,14 +1,17 @@
-#data csv file:
-    #1. day
-    #2. frog hunger
-    #3. frog sleep
-    #4. money
-    #5. inventory list
-    #6. num in inventory
-    #7. dirt cells
-    #8. plants
-    #9. plants days alive
-    #10. plants location
+from cmu_graphics import *
+from classes import *
+
+#data csv file lines -- initial vals:
+    #1. day -- 0
+    #2. frog hunger -- 20
+    #3. frog sleep -- 20
+    #4. money -- 20
+    #5. inventory list -- ''
+    #6. num in inventory -- ''
+    #7. dirt cells -- ''
+    #8. plants -- ''
+    #9. plants days alive -- ''
+    #10. plants location -- ''
 
 #------------------------------------------LOAD
 def loadStartFile(app):
@@ -17,7 +20,6 @@ def loadStartFile(app):
         data = file.read()
     for line in data.splitlines():
          dataList.append([line])
-    # print(dataList)
 #integers:
     app.day = int(dataList[0][0])
     app.frog.hunger = int(dataList[1][0])
@@ -141,3 +143,20 @@ def getPlantLocations(app):
             x, y = cell
             locations += f' {x},{y}'
     return locations.strip()
+
+#------------------------------------------Inventory stuff from main
+def addToInventory(app, item):
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            if item == app.inventory[row][col]:
+                app.inventory[row][col].num += 1
+                return
+    # otherwise, add new
+    row, col = getNextEmptySlot(app)
+    app.inventory[row][col] = item
+
+def getNextEmptySlot(app):
+    for row in range(len(app.inventory)):
+        for col in range(len(app.inventory[0])):
+            if app.inventory[row][col] == None:
+                return row, col
