@@ -215,6 +215,7 @@ def dig(app, mouseX, mouseY):
             clicked = (getCellClicked(app, mouseX, mouseY))
             if clicked != None:
                 cellLeft, cellTop = clicked
+                cellLeft -= app.scrollX
                 if (cellLeft, cellTop) not in app.dirtCells:
                     app.dirtCells.add((cellLeft, cellTop))
                     x, y = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
@@ -226,6 +227,7 @@ def dig(app, mouseX, mouseY):
 
 def plantSeed(app, mouseX, mouseY): #plant or harvest
     cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
+    cellLeft -= app.scrollX
     x, y  = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
     if ((x, y) in app.plants and app.frog.nearPlot(app, cellLeft, cellTop)):
         if app.plants[(x, y)] == 'dirt':
@@ -245,6 +247,7 @@ def plantSeed(app, mouseX, mouseY): #plant or harvest
   
 def water(app, mouseX, mouseY):
     cellLeft, cellTop = getCellClicked(app, mouseX, mouseY)
+    cellLeft -= app.scrollX
     x, y  = cellLeft+app.cellWidth/2, cellTop+app.cellHeight/2
     if ((x, y) in app.plants and app.frog.nearPlot(app, cellLeft, cellTop) and
         app.plants[(x, y)] != 'dirt' and not app.plants[(x, y)].watered):
@@ -440,10 +443,9 @@ def getNextEmptySlot(app):
             if app.inventory[row][col] == None:
                 return row, col
 
-#------------------------------------------SLEEP
+#------------------------------------------Bedroom
 def sleep_redrawAll(app):
     drawRect(0, 0, app.width, app.height, fill=app.bedroomColor)
-    # drawLabel('zZzzZzz...', app.width/2, app.height/2-50, size=20)
     drawLabel(f"Tomorrow's weather is...{app.weather}!", 
               app.width/2, 20, size=20)
     drawImage(app.bedroomScreen, 0, 0, width=app.bedroomWidth, height=app.bedroomHeight)
@@ -566,7 +568,6 @@ def forest_onKeyRelease(app, key):
     app.frog.isMoving = False
 
 def forest_onStep(app):
-    # row, col = getCurrCell(app, app.frog.x, app.frog.y)
     if app.frog.isMoving and frogNotInTrees(app):
         app.frog.takeStep(app)
         if app.frog.x >= app.width - app.margin:
