@@ -10,7 +10,7 @@ class Frog:
         self.careButtons = [LittleButton('eat'), LittleButton('sleep')]
 
         self.isMoving=self.doneWorking=self.atRightEdge=self.atLeftEdge=False
-        self.showMenu = False
+        self.showMenu = self.atBottomEdge = False
         self.x = app.width/2
         self.y = app.height/2
         self.dx = 12
@@ -47,7 +47,8 @@ class Frog:
             self. x += self.dx
         elif self.direction == 'up' and self.y > 0:
             self. y -= self.dy
-        elif self.direction == 'down' and self.y < app.height:
+        elif (self.direction == 'down' and self.y < app.height 
+              and not self.atBottomEdge):
             self. y += self.dy
     
     def draw(self):
@@ -169,7 +170,9 @@ class Button:
                     'marketBuy': Image.open('images/marketbuy.png'),
                     'marketSell': Image.open('images/marketsell.png'),
                     'clear': Image.open('images/clear.png'),
-                    'save': Image.open('images/save.png')}
+                    'save': Image.open('images/save.png'),
+                    'paint': Image.open('images/paint.png'),
+                    'decor': Image.open("images/decor.png")}
     buttonPos = {'farm': (175, 200),
                  'about': (175,300),
                  'undo': (0,5),
@@ -183,7 +186,9 @@ class Button:
                  'marketBuy': (20, 10),
                  'marketSell': (100, 10),
                  'clear': (200, 320),
-                 'save': (360, 200)}
+                 'save': (360, 200),
+                 'paint': (860, 600),
+                 'decor': (780, 600)}
     def __init__(self, task):
         self.task = task
         self.image = Button.buttonImages[task]
@@ -253,6 +258,24 @@ class Seed(Item):
         if self == app.selectedItem:
             self.border = 'green'
         else: self.border = None
+
+class Decor:
+    bedImages = {'bed1': Image.open("images/bed1.png"),
+                'bed2': Image.open("images/bed2.png"),
+                'bed3': Image.open("images/bed3.png"),
+                'bed4': Image.open("images/bed4.png")}
+    def __init__(self, thing):
+        if 'bed' in thing:
+            self.type = 'bed'
+            self.image = Decor.bedImages[thing]
+        elif 'poster' in thing:
+            self.type = 'poster'
+            self.image = Decor.posterImages[thing]
+        self.width, self.height = getNewDims(self.image, 2.5)
+        self.image = CMUImage(self.image)
+    
+    def draw(self):
+        drawImage(self.image, 0, 0, width=self.width, height=self.height)
 
 def getNewDims(image, factor):
     width,height = image.width, image.height

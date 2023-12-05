@@ -45,6 +45,11 @@ def onAppStart(app):
 
     loadStartFile(app)
 
+    app.bedroomColor = 'lightBlue'
+    app.colors = ['pink', 'gold', 'orange', 'lightGreen', 'lightBlue', 'violet']
+    app.bed = Decor('bed4')
+    
+
 def initBuyItemsList(app):
     app.cost = 0
     app.buyItemsList = [[Seed('tomato'), Seed('strawberry'), Seed('wheat')], 
@@ -77,6 +82,10 @@ def initImages(app):
     app.seedImageWidth, app.seedImageHeight = getNewDims(app.seedImage, 5)
     app.seedImage = CMUImage(app.seedImage)
 
+    app.bedroomScreen = Image.open('images/bedroom.png')
+    app.bedroomWidth, app.bedroomHeight = getNewDims(app.bedroomScreen, 2.5)
+    app.bedroomScreen = CMUImage(app.bedroomScreen)
+
 def initButtons(app):
     app.play = Button('farm')
     app.about = Button('about')
@@ -94,6 +103,8 @@ def initButtons(app):
     app.buy = Button('buy')
     app.clearCart = LittleButton('clear')
     app.save = Button('save')
+    app.paint = LittleButton('paint')
+    app.decor = LittleButton('decor')
 
 #------------------------------------------START
 def start_redrawAll(app):
@@ -431,11 +442,15 @@ def getNextEmptySlot(app):
 
 #------------------------------------------SLEEP
 def sleep_redrawAll(app):
-    drawRect(0, 0, app.width, app.height, fill='lightBlue')
-    drawLabel('zZzzZzz...', app.width/2, app.height/2-50, size=20)
-    drawLabel(f"Tomorrow's weather is...{app.weather}", 
-              app.width/2, app.height/2, size=20)
+    drawRect(0, 0, app.width, app.height, fill=app.bedroomColor)
+    # drawLabel('zZzzZzz...', app.width/2, app.height/2-50, size=20)
+    drawLabel(f"Tomorrow's weather is...{app.weather}!", 
+              app.width/2, 20, size=20)
+    drawImage(app.bedroomScreen, 0, 0, width=app.bedroomWidth, height=app.bedroomHeight)
     app.undo.draw()
+    app.paint.draw()
+    app.decor.draw()
+    app.bed.draw()
 
 def sleep_onMousePress(app, mouseX, mouseY):
     if app.undo.wasClicked(mouseX, mouseY):
@@ -443,6 +458,8 @@ def sleep_onMousePress(app, mouseX, mouseY):
         updatePlants(app)
         app.day += 1
         setActiveScreen('farm')
+    elif app.paint.wasClicked(mouseX, mouseY):
+        changeWallColor(app)
 
 def updateWeather(app):
     num = random.randint(0,10)
@@ -459,6 +476,10 @@ def updatePlants(app):
             if app.weather == 'rain':
                 app.plants[cell].watered = True
             else: app.plants[cell].watered = False
+
+def changeWallColor(app):
+    i = random.randint(0,5)
+    app.bedroomColor = app.colors[i]
 
 #------------------------------------------EAT
 def eat_redrawAll(app):
@@ -519,8 +540,8 @@ def drawForestCell(app, row, col, fill):
         drawRect(cellLeft, cellTop+75, 100, 75, fill=fill, align='left')
 
 def getForestCellLeftTop(app, row, col):
-    cellLeft = app.forestScrollX + col * 100
-    cellTop = app.forestScrollY + row * 100
+    cellLeft = app.forestScrollX + col * app.cellWidth
+    cellTop = app.forestScrollY + row * app.cellHeight
     return (cellLeft, cellTop)
 
 def forest_onMousePress(app, mouseX, mouseY):
@@ -530,7 +551,9 @@ def forest_onMousePress(app, mouseX, mouseY):
         setActiveScreen('farm')
     else:
         row, col = getCurrCell(app, mouseX, mouseY)
-        if app.forestMap[row][col] == app.randomValue:
+        cellLeft, cellTop = getForestCellLeftTop(app, row, col)
+        if (app.forestMap[row][col] == app.randomValue and 
+            app.frog.nearPlot(app, cellLeft, cellTop)):
             addToInventory(app, app.goodie)
             app.forestMap[row][col] = -1
 
@@ -554,6 +577,10 @@ def forest_onStep(app):
             scrollForest(app, 'right')
             app.frog.atLeftEdge = True
         else: app.frog.atLeftEdge = False
+        if app.frog.y >= app.height - app.margin:
+            scrollForest(app, 'up')
+            app.frog.atBottomEdge = True
+        else: app.frog.atBottomEdge = False
     app.frog.counter +=1
 
 def scrollForest(app, direction):
@@ -561,9 +588,29 @@ def scrollForest(app, direction):
         app.forestScrollX -= 10
     elif direction == 'right':
         app.forestScrollX += 10
+    elif direction == 'up':
+        app.forestScrollY -= 10
+
 
 def frogNotInTrees(app): # "Trees" = dark green cells
-    row, col = getNextCell(app, app.frog.x-68, app.frog.y-68)
+    if app.frog.direction == 'up':
+        #don't go off edge
+        if getCurrCell(app, app.frog.x, app.frog.y-18) == None: 
+            return False
+        row, col = getCurrCell(app, app.frog.x, app.frog.y-18)
+    elif app.frog.direction == 'down':
+        if getCurrCell(app, app.frog.x, app.frog.y+98) == None: 
+            return False
+        row, col = getCurrCell(app, app.frog.x, app.frog.y+98)
+    elif app.frog.direction == 'left':
+        if getCurrCell(app, app.frog.x-68, app.frog.y) == None: 
+            return False
+        row, col = getCurrCell(app, app.frog.x-68, app.frog.y)
+    elif app.frog.direction == 'right':
+        if getCurrCell(app, app.frog.x+68, app.frog.y) == None: 
+            return False
+        row, col = getCurrCell(app, app.frog.x+68, app.frog.y)
+    
     if (0 <= row < len(app.forestMap) and 
     0 <= col < len(app.forestMap[0]) and 
     app.forestMap[row][col] <= 10):
