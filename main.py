@@ -298,10 +298,6 @@ def scroll(app, direction):
     elif direction == 'right':
         if app.boardLeft + app.scrollX == 0: return
         app.scrollX +=10
-    # for cellLeft, cellTop in copy.copy(app.dirtCells):
-    #         newCellLeft = cellLeft + app.scrollX
-    #         app.dirtCells.add((newCellLeft, cellTop))
-    #         app.dirtCells.remove((cellLeft, cellTop))
 
 #drawing a board (CS Academy: https://academy.cs.cmu.edu/notes/5504)
 def drawBoard(app):
