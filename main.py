@@ -21,6 +21,7 @@ def onAppStart(app):
     app.scrollX = 0
 # frog :3
     app.frog = Frog(app)
+    app.sleepCounter = 0
 # plants
     app.plants = dict() #positions of all plant cells and species
     app.dirtCells = set() #cellLeft, cellTop of all 'hoed' cells
@@ -455,13 +456,16 @@ def sleep_redrawAll(app):
     app.bed.draw()
 
 def sleep_onMousePress(app, mouseX, mouseY):
-    if app.undo.wasClicked(mouseX, mouseY):
+    if app.undo.wasClicked(mouseX, mouseY): #go back to farm/start next day
         app.frog.bedtime()
         updatePlants(app)
         app.day += 1
         setActiveScreen('farm')
     elif app.paint.wasClicked(mouseX, mouseY):
         changeWallColor(app)
+
+def sleep_onStep(app):
+    app.sleepCounter += 1
 
 def updateWeather(app):
     num = random.randint(0,10)

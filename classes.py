@@ -73,8 +73,6 @@ class Frog:
         drawRect(75, 636, self.hunger*10, 10, fill='orange', border=None,
                  align='left')
         drawRect(75, 636, 200, 10, fill=None, border='black',align='left')
-        # drawLabel(f'Sleep:{self.sleep} Hunger:{self.hunger}', 
-        #           20, 20, size=16, align='left')
         if self.doneWorking:
             drawLabel('I need some care!', self.x, 
                       self.y-75, size=16)
