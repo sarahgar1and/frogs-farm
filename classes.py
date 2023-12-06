@@ -262,6 +262,9 @@ class Decor:
                 'bed2': Image.open("images/bed2.png"),
                 'bed3': Image.open("images/bed3.png"),
                 'bed4': Image.open("images/bed4.png")}
+    posterImages = {'poster1': Image.open('images/poster1.png'),
+                    'poster2': Image.open('images/poster2.png'),
+                    'poster3': Image.open('images/poster3.png')}
     def __init__(self, thing):
         if 'bed' in thing:
             self.type = 'bed'
@@ -271,9 +274,11 @@ class Decor:
             self.image = Decor.posterImages[thing]
         self.width, self.height = getNewDims(self.image, 2.5)
         self.image = CMUImage(self.image)
+        self.equiped = True
     
     def draw(self):
-        drawImage(self.image, 0, 0, width=self.width, height=self.height)
+        if self.equiped:
+            drawImage(self.image, 0, 0, width=self.width, height=self.height)
 
 def getNewDims(image, factor):
     width,height = image.width, image.height

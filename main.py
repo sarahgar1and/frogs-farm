@@ -39,6 +39,7 @@ def onAppStart(app):
     initBuyItemsList(app)
     initImages(app)
     initButtons(app)
+    initFurniture(app)
 
     app.weather = 'sunny'
     app.forestScrollX = app.forestScrollY = 0
@@ -48,7 +49,6 @@ def onAppStart(app):
 
     app.bedroomColor = 'lightBlue'
     app.colors = ['pink', 'gold', 'orange', 'lightGreen', 'lightBlue', 'violet']
-    app.bed = Decor('bed4')
     
 
 def initBuyItemsList(app):
@@ -106,6 +106,11 @@ def initButtons(app):
     app.save = Button('save')
     app.paint = LittleButton('paint')
     app.decor = LittleButton('decor')
+
+def initFurniture(app):
+    app.beds = [Decor('bed1'), Decor('bed2'), Decor('bed3'), Decor('bed4')]
+    app.bed = app.beds[3]
+    app.posters = [Decor('poster1'), Decor('poster2'), Decor('poster3')]
 
 #------------------------------------------START
 def start_redrawAll(app):
@@ -450,6 +455,8 @@ def sleep_redrawAll(app):
     app.paint.draw()
     app.decor.draw()
     app.bed.draw()
+    for item in app.posters:
+        item.draw()
 
 def sleep_onMousePress(app, mouseX, mouseY):
     if app.undo.wasClicked(mouseX, mouseY): #go back to farm/start next day
@@ -457,8 +464,14 @@ def sleep_onMousePress(app, mouseX, mouseY):
         updatePlants(app)
         app.day += 1
         setActiveScreen('farm')
+    #randomizing the room
     elif app.paint.wasClicked(mouseX, mouseY):
         changeWallColor(app)
+    elif app.decor.wasClicked(mouseX, mouseY):
+        i = random.randint(0,3)
+        app.bed = app.beds[i]
+        if i <= 2:
+            app.posters[i].equiped = not app.posters[i].equiped
 
 def sleep_onStep(app):
     app.sleepCounter += 1
